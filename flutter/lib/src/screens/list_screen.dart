@@ -69,9 +69,12 @@ class _ListScreenState extends State<ListScreen> {
       itemCount: _entries.length,
       itemBuilder: (ctx, i) => EntryCard(
         entry: _entries[i],
-        onTap: () => Navigator.push(ctx, MaterialPageRoute(
-          builder: (_) => DetailScreen(entry: _entries[i]),
-        )).then((_) => _load()),
+        onTap: () async {
+          await Navigator.push(ctx, MaterialPageRoute(
+            builder: (_) => DetailScreen(entry: _entries[i], onChanged: _load),
+          ));
+          _load();
+        },
         onDone: () async {
           await (_entries[i].isDone
               ? siftService.undo(_entries[i].idPrefix)
