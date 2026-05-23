@@ -1,6 +1,7 @@
 use clap::{Parser, Subcommand};
 
 mod add;
+mod delete;
 mod edit;
 mod list;
 mod search_cmd;
@@ -65,6 +66,8 @@ pub enum Command {
         #[arg(long)]
         body: Option<String>,
     },
+    /// Delete an entry permanently
+    Delete { id_prefix: String },
     /// Show full entry details
     Show { id_prefix: String },
     /// List all tags with counts
@@ -134,6 +137,7 @@ pub fn run() {
             headline,
             body,
         } => edit::run(&store, &mut index, id_prefix, headline, body),
+        Command::Delete { id_prefix } => delete::run(&store, &mut index, id_prefix),
         Command::Show { id_prefix } => show::run(&index, id_prefix),
         Command::Tags { like } => tags_cmd::run(&index, like),
         Command::Search { query } => search_cmd::run(&index, query),
