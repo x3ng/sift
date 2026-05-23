@@ -10,7 +10,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
-  final _listKey = GlobalKey();
+  String? _tagFilter; // from tags page: filter inbox by this tag
 
   void _openAdd() {
     Navigator.of(context).push(MaterialPageRoute(
@@ -25,50 +25,53 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final isWide = MediaQuery.of(context).size.width >= 600;
 
-    if (isWide) {
-      return Scaffold(
-        body: Row(children: [
-          NavigationRail(
-            selectedIndex: _selectedIndex,
-            onDestinationSelected: (i) => setState(() => _selectedIndex = i),
-            labelType: NavigationRailLabelType.all,
-            trailing: Expanded(
-              child: Column(mainAxisAlignment: MainAxisAlignment.end, children: [
-                FloatingActionButton.small(
-                  heroTag: 'add',
-                  onPressed: _openAdd,
-                  child: const Icon(Icons.add),
-                ),
-                const SizedBox(height: 12),
-              ]),
-            ),
-            destinations: const [
-              NavigationRailDestination(icon: Icon(Icons.inbox_outlined), selectedIcon: Icon(Icons.inbox), label: Text('Inbox')),
-              NavigationRailDestination(icon: Icon(Icons.tag_outlined), selectedIcon: Icon(Icons.tag), label: Text('Tags')),
-            ],
-          ),
-          const VerticalDivider(width: 1),
-          Expanded(child: _buildPage()),
-        ]),
-      );
-    }
-
     return Scaffold(
-      body: _buildPage(),
-      floatingActionButton: _selectedIndex == 0
-          ? FloatingActionButton(onPressed: _openAdd, child: const Icon(Icons.add))
-          : null,
+      body: Row(children: [
+        // Sidebar — NavigationRail on all sizes
+        NavigationRail(
+          selectedIndex: _selectedIndex,
+          onDestinationSelected: (i) => setState(() => _selectedIndex = i),
+          labelType: isWide ? NavigationRailLabelType.all : NavigationRailLabelType.selected,
+          groupAlignment: -0.85,
+          trailing: Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: FloatingActionButton.small(
+              heroTag: 'add',
+              onPressed: _openAdd,
+              child: const Icon(Icons.add),
+            ),
+          ),
+          destinations: const [
+            NavigationRailDestination(
+              icon: Icon(Icons.inbox_outlined),
+              selectedIcon: Icon(Icons.inbox),
+              label: Text('Inbox'),
+            ),
+            NavigationRailDestination(
+              icon: Icon(Icons.tag_outlined),
+              selectedIcon: Icon(Icons.tag),
+              label: Text('Tags'),
+            ),
+          ],
+        ),
+        const VerticalDivider(width: 1),
+        Expanded(child: _buildPage()),
+      ]),
     );
   }
 
   Widget _buildPage() {
     switch (_selectedIndex) {
       case 0:
-        return ListScreen(key: _listKey);
+        return ListScreen(tagFilter: _tagFilter, onFilterApplied: () => setState(() => _tagFilter = null));
       case 1:
-        return const TagsScreen();
+        return TagsScreen(onTagTap: (tag) {
+          _tagFilter = tag;
+          _selectedIndex = 0;
+          setState(() {});
+        });
       default:
-        return ListScreen(key: _listKey);
+        return ListScreen(tagFilter: null, onFilterApplied: () {});
     }
   }
 }

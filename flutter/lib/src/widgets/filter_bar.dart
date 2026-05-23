@@ -35,6 +35,24 @@ class FilterBarState extends State<FilterBar> {
     if (mounted) setState(() => _allTags = tags);
   }
 
+  /// Apply pre-parsed tokens (e.g. from saved default filter)
+  void applyTokens(List<String> tokens) {
+    _searchCtrl.text = tokens.join(' ');
+    _onSubmit(_searchCtrl.text);
+  }
+
+  /// Get current query as tokens for saving
+  List<String> getTokens() {
+    final tokens = <String>[];
+    for (final t in _query.tagsAnd) { tokens.add('#$t'); }
+    for (final t in _query.tagsNot) { tokens.add('-#$t'); }
+    for (final d in _query.dates) { tokens.add('${d.prefix}:${_opLabel(d.op)}'); }
+    if (_query.fulltext != null && _query.fulltext!.isNotEmpty) {
+      tokens.add(_query.fulltext!);
+    }
+    return tokens;
+  }
+
   void _emit() => widget.onChanged(_query);
 
   void _addAnd(String tag) { if (!_query.tagsAnd.contains(tag)) { _query.tagsAnd.add(tag); _searchCtrl.clear(); _showSuggestions = false; _emit(); setState(() {}); } }

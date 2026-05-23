@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import '../../main.dart';
 import '../services/api.dart';
+import '../services/prefs.dart';
 import '../services/query.dart';
 import 'detail_screen.dart';
 import '../widgets/entry_card.dart';
 import '../widgets/filter_bar.dart';
 
 class ListScreen extends StatefulWidget {
-  const ListScreen({super.key});
+  final String? tagFilter;
+  final VoidCallback? onFilterApplied;
+  const ListScreen({super.key, this.tagFilter, this.onFilterApplied});
 
   @override State<ListScreen> createState() => _ListScreenState();
 }
@@ -17,16 +20,33 @@ class _ListScreenState extends State<ListScreen> {
   bool _loading = true;
   ParsedQuery _query = ParsedQuery(tagsAnd: [], tagsNot: [], dates: []);
   final _filterKey = GlobalKey<FilterBarState>();
+  bool _filterPinned = false;
 
   @override void initState() {
     super.initState();
-    _load();
+    _loadDefaultFilter();
+  }
+
+  Future<void> _loadDefaultFilter() async {
+    // If navigated from Tags page with a tag filter, apply it first
+    if (widget.tagFilter != null && mounted) {
+      _filterKey.currentState?.applyTokens(['#${widget.tagFilter}']);
+      widget.onFilterApplied?.call();
+      return;
+    }
+
+    final tokens = await Prefs.getDefaultFilter();
+    if (tokens != null && tokens.isNotEmpty && mounted) {
+      _filterPinned = true;
+      _filterKey.currentState?.applyTokens(tokens);
+    } else {
+      _load();
+    }
   }
 
   Future<void> _load() async {
     setState(() => _loading = true);
 
-    // Build date filters map from parsed query
     final dateFilters = <String, String>{};
     for (final dc in _query.dates) {
       dateFilters[dc.prefix] = _opStr(dc.op);
@@ -38,7 +58,6 @@ class _ListScreenState extends State<ListScreen> {
       dateFilters: dateFilters,
     );
 
-    // Client-side fulltext search
     if (_query.fulltext != null && _query.fulltext!.isNotEmpty) {
       final q = _query.fulltext!.toLowerCase();
       result = result.where((e) =>
@@ -54,15 +73,42 @@ class _ListScreenState extends State<ListScreen> {
     }
   }
 
+  Future<void> _pinCurrentFilter() async {
+    final tokens = _filterKey.currentState?.getTokens() ?? [];
+    await Prefs.setDefaultFilter(tokens);
+    setState(() => _filterPinned = tokens.isNotEmpty);
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(tokens.isEmpty ? 'Default filter cleared' : 'Default filter saved'),
+        duration: const Duration(seconds: 1)));
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Column(children: [
-      FilterBar(key: _filterKey, onChanged: (q) {
-        _query = q;
-        _load();
-      }),
-      Expanded(child: _buildList()),
-    ]);
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Inbox'),
+        actions: [
+          IconButton(
+            icon: Icon(_filterPinned ? Icons.push_pin : Icons.push_pin_outlined),
+            tooltip: _filterPinned ? 'Update pinned filter' : 'Pin current filter',
+            onPressed: _pinCurrentFilter,
+          ),
+          if (_filterPinned)
+            IconButton(
+              icon: const Icon(Icons.close, size: 20),
+              tooltip: 'Clear pinned filter',
+              onPressed: () async { await Prefs.clearDefaultFilter(); setState(() => _filterPinned = false); },
+            ),
+        ],
+      ),
+      body: Column(children: [
+        FilterBar(key: _filterKey, onChanged: (q) {
+          _query = q;
+          _load();
+        }),
+        Expanded(child: _buildList()),
+      ]),
+    );
   }
 
   Widget _buildList() {

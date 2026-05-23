@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import '../../main.dart';
 
 class TagsScreen extends StatefulWidget {
-  const TagsScreen({super.key});
+  final void Function(String tag)? onTagTap;
+  const TagsScreen({super.key, this.onTagTap});
+
   @override State<TagsScreen> createState() => _TagsScreenState();
 }
 
@@ -23,19 +25,34 @@ class _TagsScreenState extends State<TagsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
-    if (_tags.isEmpty) return const Center(child: Text('No tags yet'));
+    final cs = Theme.of(context).colorScheme;
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(8),
-      itemCount: _tags.length,
-      itemBuilder: (ctx, i) => ListTile(
-        leading: CircleAvatar(
-          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-          child: Text('${_tags[i].$2}', style: TextStyle(color: Theme.of(context).colorScheme.onPrimaryContainer, fontWeight: FontWeight.w600, fontSize: 13)),
-          ),
-        title: Text('#${_tags[i].$1}'),
-      ),
+    return Scaffold(
+      appBar: AppBar(title: const Text('Tags')),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _tags.isEmpty
+              ? const Center(child: Text('No tags yet', style: TextStyle(color: Colors.grey)))
+              : ListView.builder(
+                  padding: const EdgeInsets.all(8),
+                  itemCount: _tags.length,
+                  itemBuilder: (ctx, i) {
+                    final tag = _tags[i].$1;
+                    final count = _tags[i].$2;
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: cs.primaryContainer,
+                        radius: 16,
+                        child: Text('$count',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+                                color: cs.onPrimaryContainer)),
+                      ),
+                      title: Text('#$tag'),
+                      trailing: const Icon(Icons.chevron_right, size: 18),
+                      onTap: widget.onTagTap != null ? () => widget.onTagTap!(tag) : null,
+                    );
+                  },
+                ),
     );
   }
 }
