@@ -84,31 +84,18 @@ class _ListScreenState extends State<ListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Inbox'),
-        actions: [
-          IconButton(
-            icon: Icon(_filterPinned ? Icons.push_pin : Icons.push_pin_outlined),
-            tooltip: _filterPinned ? 'Update pinned filter' : 'Pin current filter',
-            onPressed: _pinCurrentFilter,
-          ),
-          if (_filterPinned)
-            IconButton(
-              icon: const Icon(Icons.close, size: 20),
-              tooltip: 'Clear pinned filter',
-              onPressed: () async { await Prefs.clearDefaultFilter(); setState(() => _filterPinned = false); },
-            ),
-        ],
-      ),
-      body: Column(children: [
-        FilterBar(key: _filterKey, onChanged: (q) {
-          _query = q;
-          _load();
-        }),
-        Expanded(child: _buildList()),
-      ]),
-    );
+    return Column(children: [
+      FilterBar(key: _filterKey, onChanged: (q) {
+        _query = q;
+        _load();
+      }, trailing: IconButton(
+        icon: Icon(_filterPinned ? Icons.push_pin : Icons.push_pin_outlined, size: 18),
+        tooltip: _filterPinned ? 'Update pinned filter' : 'Pin as default',
+        onPressed: _pinCurrentFilter,
+        visualDensity: VisualDensity.compact,
+      )),
+      Expanded(child: _buildList()),
+    ]);
   }
 
   Widget _buildList() {

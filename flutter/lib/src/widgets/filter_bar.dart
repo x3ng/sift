@@ -9,7 +9,8 @@ import '../services/query.dart';
 
 class FilterBar extends StatefulWidget {
   final void Function(ParsedQuery query) onChanged;
-  const FilterBar({super.key, required this.onChanged});
+  final Widget? trailing;
+  const FilterBar({super.key, required this.onChanged, this.trailing});
 
   @override
   State<FilterBar> createState() => FilterBarState();
@@ -150,20 +151,23 @@ class FilterBarState extends State<FilterBar> {
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           // Search row
-          SizedBox(height: 40, child: TextField(
-            controller: _searchCtrl, focusNode: _focusNode,
-            decoration: InputDecoration(
-              hintText: hasActive ? 'Add filter...' : 'Search or filter...  #tag  done:this-week',
-              prefixIcon: const Icon(Icons.search, size: 18),
-              suffixIcon: hasActive ? IconButton(icon: const Icon(Icons.clear, size: 16), onPressed: _clearAll) : null,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(20)),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-              filled: true,
-              fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withAlpha(80),
-            ),
-            onSubmitted: _onSubmit,
-            onChanged: (_) => setState(() => _showSuggestions = true),
-          )),
+          Row(children: [
+            Expanded(child: SizedBox(height: 40, child: TextField(
+              controller: _searchCtrl, focusNode: _focusNode,
+              decoration: InputDecoration(
+                hintText: hasActive ? 'Add filter...' : 'Search or filter...  #tag  done:this-week',
+                prefixIcon: const Icon(Icons.search, size: 18),
+                suffixIcon: hasActive ? IconButton(icon: const Icon(Icons.clear, size: 16), onPressed: _clearAll) : null,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(20)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                filled: true,
+                fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withAlpha(80),
+              ),
+              onSubmitted: _onSubmit,
+              onChanged: (_) => setState(() => _showSuggestions = true),
+            ))),
+            if (widget.trailing != null) widget.trailing!,
+          ]),
 
           // Active filter chips
           if (hasActive) Padding(
