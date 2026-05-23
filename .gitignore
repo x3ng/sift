@@ -1,5 +1,5 @@
 /target
-docs/superpowers/specs/
+docs/superpowers/
 flutter/rust/target/
 flutter/build/
 .dart_tool/
