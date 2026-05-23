@@ -1,2 +1,11 @@
 /target
 docs/superpowers/specs/
+flutter/rust/target/
+flutter/build/
+.dart_tool/
+.flutter-plugins*
+*.iml
+.idea/
+.vscode/
+*.swp
+*~
