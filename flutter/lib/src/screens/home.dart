@@ -44,7 +44,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             destinations: const [
               NavigationRailDestination(icon: Icon(Icons.inbox_outlined), selectedIcon: Icon(Icons.inbox), label: Text('Inbox')),
-              NavigationRailDestination(icon: Icon(Icons.check_circle_outlined), selectedIcon: Icon(Icons.check_circle), label: Text('Done')),
               NavigationRailDestination(icon: Icon(Icons.tag_outlined), selectedIcon: Icon(Icons.tag), label: Text('Tags')),
             ],
           ),
@@ -67,8 +66,6 @@ class _HomeScreenState extends State<HomeScreen> {
       case 0:
         return ListScreen(key: _listKey);
       case 1:
-        return ListScreen(key: _listKey, showDone: true);
-      case 2:
         return const TagsScreen();
       default:
         return ListScreen(key: _listKey);

@@ -6,8 +6,7 @@ import '../widgets/entry_card.dart';
 import '../widgets/filter_bar.dart';
 
 class ListScreen extends StatefulWidget {
-  final bool showDone;
-  const ListScreen({super.key, this.showDone = false});
+  const ListScreen({super.key});
 
   @override State<ListScreen> createState() => _ListScreenState();
 }
@@ -29,7 +28,6 @@ class _ListScreenState extends State<ListScreen> {
     final result = await siftService.list(
       tagsAnd: _activeTags,
       due: _activeDue,
-      showDone: widget.showDone,
     );
     if (mounted) {
       setState(() { _entries = result; _loading = false; });
