@@ -39,10 +39,6 @@ pub enum Command {
         tags_not: Vec<String>,
         #[arg(long = "due")]
         due: Option<String>,
-        #[arg(long = "done")]
-        done: bool,
-        #[arg(long = "all")]
-        all: bool,
         #[arg(long = "sort", default_value = "default")]
         sort: String,
         #[arg(long = "format", default_value = "plain")]
@@ -119,12 +115,10 @@ pub fn run() {
             tags_or,
             tags_not,
             due,
-            done,
-            all,
             sort,
             format,
         } => list::run(
-            &index, &cfg, tags_and, tags_or, tags_not, due, done, all, sort, format,
+            &index, &cfg, tags_and, tags_or, tags_not, due, sort, format,
         ),
         Command::Tag {
             id_prefix,

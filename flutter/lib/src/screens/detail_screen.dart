@@ -38,12 +38,7 @@ class _DetailScreenState extends State<DetailScreen> {
     }
   }
 
-  Future<void> _toggleDone() async {
-    if (_entry.isDone) {
-      await siftService.undo(_entry.idPrefix);
-    } else {
-      await siftService.done(_entry.idPrefix);
-    }
+  Future<void> _notify() async {
     _reload();
     widget.onChanged?.call();
   }
@@ -74,13 +69,13 @@ class _DetailScreenState extends State<DetailScreen> {
   Future<void> _addTag(String tag) async {
     if (tag.isEmpty) return;
     await siftService.tag(_entry.idPrefix, addTags: [tag]);
-    _reload();
+    _notify();
     _tagCtrl.clear();
   }
 
   Future<void> _rmTag(String tag) async {
     await siftService.tag(_entry.idPrefix, rmTags: [tag]);
-    _reload();
+    _notify();
   }
 
   Future<void> _editHeadline() async {
@@ -98,8 +93,7 @@ class _DetailScreenState extends State<DetailScreen> {
     );
     if (r != null && r.isNotEmpty) {
       await siftService.edit(_entry.idPrefix, headline: r);
-      _reload();
-      widget.onChanged?.call();
+      _notify();
     }
   }
 
@@ -118,8 +112,7 @@ class _DetailScreenState extends State<DetailScreen> {
     );
     if (r != null) {
       await siftService.edit(_entry.idPrefix, body: r);
-      _reload();
-      widget.onChanged?.call();
+      _notify();
     }
   }
 
@@ -131,7 +124,7 @@ class _DetailScreenState extends State<DetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final tags = _entry.displayTags;
+    final tags = List<String>.from(_entry.tags);
     final suggestions = _allTags
         .where((t) => t.contains(_tagCtrl.text.toLowerCase()) && !_entry.tags.contains(t))
         .take(6)
@@ -141,11 +134,6 @@ class _DetailScreenState extends State<DetailScreen> {
       appBar: AppBar(
         title: const Text('Entry'),
         actions: [
-          IconButton(
-            icon: Icon(_entry.isDone ? Icons.undo : Icons.check_circle_outline),
-            tooltip: _entry.isDone ? 'Undo' : 'Done',
-            onPressed: _toggleDone,
-          ),
           PopupMenuButton<String>(
             onSelected: (v) { if (v == 'delete') _delete(); },
             itemBuilder: (ctx) => [
@@ -180,9 +168,7 @@ class _DetailScreenState extends State<DetailScreen> {
                 padding: const EdgeInsets.only(top: 12, bottom: 4),
                 child: Text(
                   _entry.headline,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    decoration: _entry.isDone ? TextDecoration.lineThrough : null,
-                  ),
+                  style: Theme.of(context).textTheme.titleLarge,
                 ),
               ),
             ),
@@ -190,10 +176,6 @@ class _DetailScreenState extends State<DetailScreen> {
           IconButton(icon: const Icon(Icons.edit, size: 18), onPressed: _editHeadline),
         ],
       ),
-
-      // Done badge
-      if (_entry.isDone)
-        const Chip(label: Text('done'), avatar: Icon(Icons.check, size: 14)),
 
       const SizedBox(height: 12),
 

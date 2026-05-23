@@ -1,10 +1,8 @@
-/// SiftService wraps future flutter_rust_bridge calls.
-/// Currently uses a stub implementation that reads JSONL directly.
-/// Replace stub methods with FRB-generated calls after codegen.
+/// SiftService — reads/writes the same JSONL as sift CLI.
+/// No special semantics for any tag — "done" is just a tag like any other.
 
 import 'dart:convert';
 import 'dart:io';
-import 'package:path_provider/path_provider.dart';
 
 class Entry {
   final String id;
@@ -30,16 +28,6 @@ class Entry {
       };
 
   String get idPrefix => id.substring(0, id.length.clamp(0, 8));
-
-  bool get isDone => tags.any((t) => t.startsWith('done/'));
-
-  List<String> get displayTags =>
-      tags.where((t) => !t.startsWith('created/') && !t.startsWith('done/')).toList();
-}
-
-class StatsData {
-  final int total, active, done, uniqueTags;
-  StatsData({required this.total, required this.active, required this.done, required this.uniqueTags});
 }
 
 class SiftService {
@@ -79,60 +67,44 @@ class SiftService {
     return bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
   }
 
+  /// List entries with optional tag/due filtering. No special filtering for any tag.
   Future<List<Entry>> list({
     List<String> tagsAnd = const [],
     List<String> tagsOr = const [],
     List<String> tagsNot = const [],
     String? due,
-    bool showDone = false,
   }) async {
     await _load();
     var result = List<Entry>.from(_entries);
 
-    if (!showDone) result.removeWhere((e) => e.isDone);
-
     for (final tag in tagsAnd) {
-      result.retainWhere((e) => e.tags.any((t) => t == tag));
+      if (tag.endsWith('*')) {
+        final prefix = tag.substring(0, tag.length - 1);
+        result.retainWhere((e) => e.tags.any((t) => t.startsWith(prefix)));
+      } else {
+        result.retainWhere((e) => e.tags.contains(tag));
+      }
     }
     if (tagsOr.isNotEmpty) {
       result.retainWhere((e) => e.tags.any((t) => tagsOr.contains(t)));
     }
     for (final tag in tagsNot) {
-      result.removeWhere((e) => e.tags.any((t) => t == tag));
+      if (tag.endsWith('*')) {
+        final prefix = tag.substring(0, tag.length - 1);
+        result.removeWhere((e) => e.tags.any((t) => t.startsWith(prefix)));
+      } else {
+        result.removeWhere((e) => e.tags.any((t) => t == tag));
+      }
     }
 
     return result;
   }
 
   Future<Entry> add(String headline, {String body = '', List<String> tags = const []}) async {
-    final entry = Entry(
-      id: _newId(),
-      headline: headline,
-      body: body,
-      tags: List<String>.from(tags),
-    );
+    final entry = Entry(id: _newId(), headline: headline, body: body, tags: List<String>.from(tags));
     _entries.add(entry);
     await _save();
     return entry;
-  }
-
-  Future<bool> done(String idPrefix) async {
-    final e = _entries.where((e) => e.id.startsWith(idPrefix)).firstOrNull;
-    if (e == null) return false;
-    final now = DateTime.now().toIso8601String().substring(0, 16);
-    if (!e.tags.any((t) => t.startsWith('done/'))) {
-      e.tags.add('done/$now');
-    }
-    await _save();
-    return true;
-  }
-
-  Future<bool> undo(String idPrefix) async {
-    final e = _entries.where((e) => e.id.startsWith(idPrefix)).firstOrNull;
-    if (e == null) return false;
-    e.tags.removeWhere((t) => t.startsWith('done/'));
-    await _save();
-    return true;
   }
 
   Future<bool> edit(String idPrefix, {String? headline, String? body}) async {
@@ -152,6 +124,7 @@ class SiftService {
     return true;
   }
 
+  /// Generic tag add/remove. All tags are equal.
   Future<bool> tag(String idPrefix, {List<String> addTags = const [], List<String> rmTags = const []}) async {
     final e = _entries.where((e) => e.id.startsWith(idPrefix)).firstOrNull;
     if (e == null) return false;
@@ -175,9 +148,7 @@ class SiftService {
     final counts = <String, int>{};
     for (final e in _entries) {
       for (final t in e.tags) {
-        if (!t.startsWith('created/') && !t.startsWith('done/')) {
-          counts[t] = (counts[t] ?? 0) + 1;
-        }
+        counts[t] = (counts[t] ?? 0) + 1;
       }
     }
     final result = counts.entries.map((e) => (e.key, e.value)).toList();
@@ -193,20 +164,5 @@ class SiftService {
         e.body.toLowerCase().contains(q) ||
         e.tags.any((t) => t.toLowerCase().contains(q))
     ).toList();
-  }
-
-  Future<StatsData> stats() async {
-    await _load();
-    final active = _entries.where((e) => !e.isDone).length;
-    final tags = <String>{};
-    for (final e in _entries) {
-      for (final t in e.tags) { tags.add(t); }
-    }
-    return StatsData(
-      total: _entries.length,
-      active: active,
-      done: _entries.length - active,
-      uniqueTags: tags.length,
-    );
   }
 }

@@ -13,38 +13,22 @@ pub fn run(
     tags_or: Vec<String>,
     tags_not: Vec<String>,
     due: Option<String>,
-    done: bool,
-    all: bool,
     sort: String,
     format: String,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let due_period = match due.as_deref() {
-        Some("today") => Some(DuePeriod::Today),
-        Some("tomorrow") => Some(DuePeriod::Tomorrow),
-        Some("this-week") => Some(DuePeriod::ThisWeek),
-        Some("overdue") => Some(DuePeriod::Overdue),
-        Some(s) => {
-            let date = NaiveDate::parse_from_str(s, "%Y-%m-%d")
-                .or_else(|_| NaiveDate::parse_from_str(s, "%Y.%m.%d"))
-                .ok();
-            date.map(DuePeriod::Before)
-        }
-        None => None,
-    };
-
+    let due_period = parse_due(due);
     let sort_mode = match sort.as_str() {
         "created" => SortMode::Created,
         "due" => SortMode::Due,
         _ => SortMode::Default,
     };
-
     let opts = FilterOptions {
         tags_and,
         tags_or,
         tags_not,
         due_period,
-        show_done: all,
-        only_done: done && !all,
+        show_done: true,   // show all — done is just a tag
+        only_done: false,
         sort_by: sort_mode,
     };
 
@@ -72,16 +56,11 @@ pub fn run(
             table.set_header(vec!["ID", "Headline", "Tags", "Due"]);
             for id in &ids {
                 if let Some(entry) = index.entries.get(id) {
-                    let tags_str = entry
-                        .tags
-                        .iter()
-                        .filter(|t| !t.starts_with("created/") && !t.starts_with("done/"))
+                    let tags_str = entry.tags.iter()
                         .map(|t| format!("#{t}"))
                         .collect::<Vec<_>>()
                         .join(" ");
-                    let due_str = index
-                        .due_times
-                        .get(id)
+                    let due_str = index.due_times.get(id)
                         .map(|dt| dt.format(&cfg.display.date_format).to_string())
                         .unwrap_or_default();
                     table.add_row(vec![
@@ -96,4 +75,18 @@ pub fn run(
         }
     }
     Ok(())
+}
+
+fn parse_due(due: Option<String>) -> Option<DuePeriod> {
+    match due.as_deref() {
+        Some("today") => Some(DuePeriod::Today),
+        Some("tomorrow") => Some(DuePeriod::Tomorrow),
+        Some("this-week") => Some(DuePeriod::ThisWeek),
+        Some("overdue") => Some(DuePeriod::Overdue),
+        Some(s) => NaiveDate::parse_from_str(s, "%Y-%m-%d")
+            .or_else(|_| NaiveDate::parse_from_str(s, "%Y.%m.%d"))
+            .ok()
+            .map(DuePeriod::Before),
+        None => None,
+    }
 }

@@ -28,7 +28,6 @@ class _ListScreenState extends State<ListScreen> {
     final result = await siftService.list(
       tagsAnd: _activeTags,
       due: _activeDue,
-      showDone: true,  // show done entries, just strikethrough
     );
     if (mounted) {
       setState(() { _entries = result; _loading = false; });
@@ -55,12 +54,15 @@ class _ListScreenState extends State<ListScreen> {
       return Center(child: Padding(padding: const EdgeInsets.all(32), child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(hasFilter ? Icons.filter_list_off : Icons.inbox_outlined, size: 48, color: Theme.of(context).colorScheme.outline),
+          Icon(hasFilter ? Icons.filter_list_off : Icons.inbox_outlined, size: 48,
+              color: Theme.of(context).colorScheme.outline),
           const SizedBox(height: 12),
-          Text(hasFilter ? 'No matching entries' : 'No entries yet', style: TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 15)),
+          Text(hasFilter ? 'No matching entries' : 'No entries yet',
+              style: TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 15)),
           if (!hasFilter) ...[
             const SizedBox(height: 4),
-            Text('Tap + to add one', style: TextStyle(color: Theme.of(context).colorScheme.outline.withAlpha(150), fontSize: 13)),
+            Text('Tap + to add one',
+                style: TextStyle(color: Theme.of(context).colorScheme.outline.withAlpha(150), fontSize: 13)),
           ],
         ],
       )));
@@ -74,12 +76,6 @@ class _ListScreenState extends State<ListScreen> {
           await Navigator.push(ctx, MaterialPageRoute(
             builder: (_) => DetailScreen(entry: _entries[i], onChanged: _load),
           ));
-          _load();
-        },
-        onDone: () async {
-          await (_entries[i].isDone
-              ? siftService.undo(_entries[i].idPrefix)
-              : siftService.done(_entries[i].idPrefix));
           _load();
         },
       ),
