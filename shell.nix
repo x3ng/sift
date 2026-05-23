@@ -7,6 +7,7 @@ pkgs.mkShell {
     rust-analyzer
     rustfmt
     clippy
+    flutter
   ];
 
   shellHook = ''
