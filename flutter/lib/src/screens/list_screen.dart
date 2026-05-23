@@ -28,6 +28,7 @@ class _ListScreenState extends State<ListScreen> {
     final result = await siftService.list(
       tagsAnd: _activeTags,
       due: _activeDue,
+      showDone: true,  // show done entries, just strikethrough
     );
     if (mounted) {
       setState(() { _entries = result; _loading = false; });
