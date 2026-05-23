@@ -1,8 +1,11 @@
 use clap::{Parser, Subcommand};
 
 mod add;
+mod batch;
 mod delete;
 mod edit;
+mod export;
+mod import;
 mod list;
 mod search_cmd;
 mod show;
@@ -75,6 +78,37 @@ pub enum Command {
     Search { query: String },
     /// Show statistics
     Stats,
+    /// Batch-modify filtered entries
+    Batch {
+        #[arg(long = "tag", value_delimiter = ',')]
+        tags_and: Vec<String>,
+        #[arg(long = "any", value_delimiter = ',')]
+        tags_or: Vec<String>,
+        #[arg(long = "exclude", value_delimiter = ',')]
+        tags_not: Vec<String>,
+        #[arg(long = "due")]
+        due: Option<String>,
+        #[arg(long = "add", value_delimiter = ',')]
+        add_tags: Vec<String>,
+        #[arg(long = "rm", value_delimiter = ',')]
+        rm_tags: Vec<String>,
+        #[arg(long)]
+        delete: bool,
+    },
+    /// Export entries to a file
+    Export {
+        /// Output path
+        path: String,
+        #[arg(long = "format", default_value = "jsonl")]
+        format: String,
+    },
+    /// Import entries from a file
+    Import {
+        /// Input path
+        path: String,
+        #[arg(long)]
+        merge: bool,
+    },
     /// Generate shell completion script
     Completion {
         /// Shell (bash, zsh, fish)
@@ -135,7 +169,11 @@ pub fn run() {
         Command::Show { id_prefix } => show::run(&index, id_prefix),
         Command::Tags { like } => tags_cmd::run(&index, like),
         Command::Search { query } => search_cmd::run(&index, query),
+        Command::Batch { tags_and, tags_or, tags_not, due, add_tags, rm_tags, delete } =>
+            batch::run(&store, &mut index, &cfg, tags_and, tags_or, tags_not, due, add_tags, rm_tags, delete),
         Command::Stats => stats::run(&index),
+        Command::Export { path, format } => export::run(&store, &path, &format),
+        Command::Import { path, merge } => import::run(&store, &mut index, &path, merge),
         Command::Completion { shell } => {
             use clap::CommandFactory;
             use clap_complete::{
