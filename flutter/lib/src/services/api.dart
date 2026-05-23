@@ -241,6 +241,39 @@ class SiftService {
     return null;
   }
 
+  /// Export all entries to a JSONL file
+  Future<void> exportTo(String path) async {
+    await _load();
+    final file = File(path);
+    file.parent.createSync(recursive: true);
+    final lines = _entries.map((e) => jsonEncode(e.toJson())).join('\n');
+    await file.writeAsString('$lines\n');
+  }
+
+  /// Import entries from a JSONL file (merge: skip duplicates by id)
+  Future<int> importFrom(String path) async {
+    final file = File(path);
+    if (!file.existsSync()) throw Exception('File not found: $path');
+    final lines = await file.readAsLines();
+    await _load();
+
+    final existingIds = _entries.map((e) => e.id).toSet();
+    var added = 0;
+    for (final line in lines) {
+      if (line.trim().isEmpty) continue;
+      try {
+        final entry = Entry.fromJson(jsonDecode(line));
+        if (!existingIds.contains(entry.id)) {
+          _entries.add(entry);
+          existingIds.add(entry.id);
+          added++;
+        }
+      } catch (_) {}
+    }
+    if (added > 0) await _save();
+    return added;
+  }
+
   Future<List<Entry>> search(String query) async {
     await _load();
     final q = query.toLowerCase();

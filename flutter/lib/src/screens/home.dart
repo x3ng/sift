@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import '../../main.dart';
 import 'list_screen.dart';
 import 'add_screen.dart';
 import 'tags_screen.dart';
@@ -11,6 +13,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   String? _tagFilter;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   void _openAdd() {
     Navigator.of(context).push(MaterialPageRoute(
@@ -19,6 +22,51 @@ class _HomeScreenState extends State<HomeScreen> {
         body: AddScreen(onAdded: () => Navigator.pop(context)),
       ),
     )).then((_) => setState(() {}));
+  }
+
+  Future<void> _showExportDialog() async {
+    final ctrl = TextEditingController(text: '${Platform.environment['HOME']}/sift-export.jsonl');
+    final r = await showDialog<String>(context: context, builder: (ctx) => AlertDialog(
+      title: const Text('Export Entries'),
+      content: TextField(controller: ctrl, decoration: const InputDecoration(
+        labelText: 'File path', border: OutlineInputBorder(),
+        helperText: '.jsonl .json .md')),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.pop(ctx, ctrl.text), child: const Text('Export')),
+      ],
+    ));
+    if (r == null || r.isEmpty) return;
+    try {
+      await siftService.exportTo(r);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Exported to $r'), duration: const Duration(seconds: 2)));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Export failed: $e')));
+    }
+  }
+
+  Future<void> _showImportDialog() async {
+    final ctrl = TextEditingController(text: '${Platform.environment['HOME']}/sift-import.jsonl');
+    final r = await showDialog<String>(context: context, builder: (ctx) => AlertDialog(
+      title: const Text('Import Entries'),
+      content: TextField(controller: ctrl, decoration: const InputDecoration(
+        labelText: 'File path', border: OutlineInputBorder(),
+        helperText: '.jsonl (merge by default)')),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.pop(ctx, ctrl.text), child: const Text('Import')),
+      ],
+    ));
+    if (r == null || r.isEmpty) return;
+    try {
+      final count = await siftService.importFrom(r);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Imported $count entries'), duration: const Duration(seconds: 2)));
+        setState(() {});
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Import failed: $e')));
+    }
   }
 
   Widget _buildNavDrawer() {
@@ -39,7 +87,7 @@ class _HomeScreenState extends State<HomeScreen> {
           icon: Icon(_selectedIndex == 1 ? Icons.tag : Icons.tag_outlined),
           label: const Text('Tags'),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 28),
           child: FilledButton.icon(
@@ -47,6 +95,15 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: const Icon(Icons.add, size: 18),
             label: const Text('New Entry'),
           ),
+        ),
+        const Divider(height: 24),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 28),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            OutlinedButton.icon(onPressed: _showExportDialog, icon: const Icon(Icons.upload, size: 16), label: const Text('Export')),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(onPressed: _showImportDialog, icon: const Icon(Icons.download, size: 16), label: const Text('Import')),
+          ]),
         ),
       ],
     );
@@ -63,11 +120,13 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Text('sift', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700,
             color: Theme.of(context).colorScheme.primary)),
       ),
-      trailing: Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: FloatingActionButton.small(
-          heroTag: 'add', onPressed: _openAdd, child: const Icon(Icons.add)),
-      ),
+      trailing: Column(mainAxisSize: MainAxisSize.min, children: [
+        FloatingActionButton.small(heroTag: 'add', onPressed: _openAdd, child: const Icon(Icons.add)),
+        const SizedBox(height: 8),
+        IconButton(icon: const Icon(Icons.upload, size: 18), tooltip: 'Export', onPressed: _showExportDialog),
+        IconButton(icon: const Icon(Icons.download, size: 18), tooltip: 'Import', onPressed: _showImportDialog),
+        const SizedBox(height: 8),
+      ]),
       destinations: const [
         NavigationRailDestination(icon: Icon(Icons.inbox_outlined), selectedIcon: Icon(Icons.inbox), label: Text('Inbox')),
         NavigationRailDestination(icon: Icon(Icons.tag_outlined), selectedIcon: Icon(Icons.tag), label: Text('Tags')),
@@ -80,7 +139,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final isWide = MediaQuery.of(context).size.width >= 600;
 
     if (isWide) {
-      // Permanent sidebar
       return Scaffold(
         body: Row(children: [
           _buildRail(),
@@ -91,8 +149,8 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    // Drawer on narrow screens
     return Scaffold(
+      key: _scaffoldKey,
       appBar: AppBar(
         leading: Builder(builder: (ctx) => IconButton(
           icon: const Icon(Icons.menu),
