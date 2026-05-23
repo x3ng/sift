@@ -6,9 +6,8 @@ import '../widgets/entry_card.dart';
 import '../widgets/filter_bar.dart';
 
 class ListScreen extends StatefulWidget {
-  final List<String> filters;
-  final String? dueFilter;
-  const ListScreen({super.key, this.filters = const [], this.dueFilter});
+  final bool showDone;
+  const ListScreen({super.key, this.showDone = false});
 
   @override State<ListScreen> createState() => _ListScreenState();
 }
@@ -22,8 +21,6 @@ class _ListScreenState extends State<ListScreen> {
 
   @override void initState() {
     super.initState();
-    _activeTags = widget.filters;
-    _activeDue = widget.dueFilter;
     _load();
   }
 
@@ -32,6 +29,7 @@ class _ListScreenState extends State<ListScreen> {
     final result = await siftService.list(
       tagsAnd: _activeTags,
       due: _activeDue,
+      showDone: widget.showDone,
     );
     if (mounted) {
       setState(() { _entries = result; _loading = false; });
@@ -47,28 +45,42 @@ class _ListScreenState extends State<ListScreen> {
         _activeDue = due;
         _load();
       }),
-      Expanded(child: _loading
-        ? const Center(child: CircularProgressIndicator())
-        : _entries.isEmpty
-          ? Center(child: Text(
-              _activeTags.isNotEmpty || _activeDue != null ? '(no matching entries)' : '(no entries)',
-              style: const TextStyle(color: Colors.grey)))
-          : ListView.builder(
-              itemCount: _entries.length,
-              itemBuilder: (ctx, i) => EntryCard(
-                entry: _entries[i],
-                onTap: () => Navigator.push(ctx, MaterialPageRoute(
-                  builder: (_) => DetailScreen(entry: _entries[i]),
-                )).then((_) => _load()),
-                onDone: () async {
-                  await (_entries[i].isDone
-                      ? siftService.undo(_entries[i].idPrefix)
-                      : siftService.done(_entries[i].idPrefix));
-                  _load();
-                },
-              ),
-            ),
-      ),
+      Expanded(child: _buildList()),
     ]);
+  }
+
+  Widget _buildList() {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_entries.isEmpty) {
+      final hasFilter = _activeTags.isNotEmpty || _activeDue != null;
+      return Center(child: Padding(padding: const EdgeInsets.all(32), child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(hasFilter ? Icons.filter_list_off : Icons.inbox_outlined, size: 48, color: Theme.of(context).colorScheme.outline),
+          const SizedBox(height: 12),
+          Text(hasFilter ? 'No matching entries' : 'No entries yet', style: TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 15)),
+          if (!hasFilter) ...[
+            const SizedBox(height: 4),
+            Text('Tap + to add one', style: TextStyle(color: Theme.of(context).colorScheme.outline.withAlpha(150), fontSize: 13)),
+          ],
+        ],
+      )));
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.only(bottom: 80),
+      itemCount: _entries.length,
+      itemBuilder: (ctx, i) => EntryCard(
+        entry: _entries[i],
+        onTap: () => Navigator.push(ctx, MaterialPageRoute(
+          builder: (_) => DetailScreen(entry: _entries[i]),
+        )).then((_) => _load()),
+        onDone: () async {
+          await (_entries[i].isDone
+              ? siftService.undo(_entries[i].idPrefix)
+              : siftService.done(_entries[i].idPrefix));
+          _load();
+        },
+      ),
+    );
   }
 }

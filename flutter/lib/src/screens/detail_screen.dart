@@ -146,9 +146,15 @@ class _DetailScreenState extends State<DetailScreen> {
             tooltip: _entry.isDone ? 'Undo' : 'Done',
             onPressed: _toggleDone,
           ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline),
-            onPressed: _delete,
+          PopupMenuButton<String>(
+            onSelected: (v) { if (v == 'delete') _delete(); },
+            itemBuilder: (ctx) => [
+              const PopupMenuItem(value: 'delete', child: Row(children: [
+                Icon(Icons.delete_outline, size: 20, color: Colors.red),
+                SizedBox(width: 8),
+                Text('Delete', style: TextStyle(color: Colors.red)),
+              ])),
+            ],
           ),
         ],
       ),

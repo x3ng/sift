@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'list_screen.dart';
 import 'add_screen.dart';
+import 'tags_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -9,13 +10,20 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
-  final List<String> _activeFilters = [];
-  String? _dueFilter;
+  final _listKey = GlobalKey();
+
+  void _openAdd() {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => Scaffold(
+        appBar: AppBar(title: const Text('New Entry')),
+        body: AddScreen(onAdded: () => Navigator.pop(context)),
+      ),
+    )).then((_) => setState(() {}));
+  }
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    final isWide = width >= 600;
+    final isWide = MediaQuery.of(context).size.width >= 600;
 
     if (isWide) {
       return Scaffold(
@@ -24,9 +32,20 @@ class _HomeScreenState extends State<HomeScreen> {
             selectedIndex: _selectedIndex,
             onDestinationSelected: (i) => setState(() => _selectedIndex = i),
             labelType: NavigationRailLabelType.all,
+            trailing: Expanded(
+              child: Column(mainAxisAlignment: MainAxisAlignment.end, children: [
+                FloatingActionButton.small(
+                  heroTag: 'add',
+                  onPressed: _openAdd,
+                  child: const Icon(Icons.add),
+                ),
+                const SizedBox(height: 12),
+              ]),
+            ),
             destinations: const [
-              NavigationRailDestination(icon: Icon(Icons.list), label: Text('List')),
-              NavigationRailDestination(icon: Icon(Icons.add_circle_outline), label: Text('Add')),
+              NavigationRailDestination(icon: Icon(Icons.inbox_outlined), selectedIcon: Icon(Icons.inbox), label: Text('Inbox')),
+              NavigationRailDestination(icon: Icon(Icons.check_circle_outlined), selectedIcon: Icon(Icons.check_circle), label: Text('Done')),
+              NavigationRailDestination(icon: Icon(Icons.tag_outlined), selectedIcon: Icon(Icons.tag), label: Text('Tags')),
             ],
           ),
           const VerticalDivider(width: 1),
@@ -37,25 +56,22 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       body: _buildPage(),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: (i) => setState(() => _selectedIndex = i),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.list), label: 'List'),
-          NavigationDestination(icon: Icon(Icons.add_circle_outline), label: 'Add'),
-        ],
-      ),
+      floatingActionButton: _selectedIndex == 0
+          ? FloatingActionButton(onPressed: _openAdd, child: const Icon(Icons.add))
+          : null,
     );
   }
 
   Widget _buildPage() {
     switch (_selectedIndex) {
       case 0:
-        return ListScreen(filters: _activeFilters, dueFilter: _dueFilter);
+        return ListScreen(key: _listKey);
       case 1:
-        return AddScreen(onAdded: () => setState(() => _selectedIndex = 0));
+        return ListScreen(key: _listKey, showDone: true);
+      case 2:
+        return const TagsScreen();
       default:
-        return const ListScreen(filters: [], dueFilter: null);
+        return ListScreen(key: _listKey);
     }
   }
 }

@@ -18,15 +18,14 @@ class SiftApp extends StatelessWidget {
     return MaterialApp(
       title: 'sift',
       debugShowCheckedModeBanner: false,
+      themeMode: ThemeMode.system,
       theme: ThemeData(
-        colorSchemeSeed: Colors.amber,
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF6750A4), brightness: Brightness.light),
         useMaterial3: true,
-        brightness: Brightness.light,
       ),
       darkTheme: ThemeData(
-        colorSchemeSeed: Colors.amber,
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFD0BCFF), brightness: Brightness.dark),
         useMaterial3: true,
-        brightness: Brightness.dark,
       ),
       home: const HomeScreen(),
     );
