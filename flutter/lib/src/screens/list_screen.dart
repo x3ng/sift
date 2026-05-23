@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../main.dart';
 import '../services/api.dart';
+import '../services/query.dart';
 import 'detail_screen.dart';
 import '../widgets/entry_card.dart';
 import '../widgets/filter_bar.dart';
@@ -14,9 +15,7 @@ class ListScreen extends StatefulWidget {
 class _ListScreenState extends State<ListScreen> {
   List<Entry> _entries = [];
   bool _loading = true;
-  List<String> _tagsAnd = [];
-  List<String> _tagsNot = [];
-  String? _fulltext;
+  ParsedQuery _query = ParsedQuery(tagsAnd: [], tagsNot: [], dates: []);
   final _filterKey = GlobalKey<FilterBarState>();
 
   @override void initState() {
@@ -27,15 +26,21 @@ class _ListScreenState extends State<ListScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
 
-    // Apply tag AND/NOT filtering
+    // Build date filters map from parsed query
+    final dateFilters = <String, String>{};
+    for (final dc in _query.dates) {
+      dateFilters[dc.prefix] = _opStr(dc.op);
+    }
+
     var result = await siftService.list(
-      tagsAnd: _tagsAnd,
-      tagsNot: _tagsNot,
+      tagsAnd: _query.tagsAnd,
+      tagsNot: _query.tagsNot,
+      dateFilters: dateFilters,
     );
 
-    // Apply full-text search client-side if active
-    if (_fulltext != null && _fulltext!.isNotEmpty) {
-      final q = _fulltext!.toLowerCase();
+    // Client-side fulltext search
+    if (_query.fulltext != null && _query.fulltext!.isNotEmpty) {
+      final q = _query.fulltext!.toLowerCase();
       result = result.where((e) =>
           e.headline.toLowerCase().contains(q) ||
           e.body.toLowerCase().contains(q) ||
@@ -52,10 +57,8 @@ class _ListScreenState extends State<ListScreen> {
   @override
   Widget build(BuildContext context) {
     return Column(children: [
-      FilterBar(key: _filterKey, onChanged: (andTags, notTags, fulltext) {
-        _tagsAnd = andTags;
-        _tagsNot = notTags;
-        _fulltext = fulltext;
+      FilterBar(key: _filterKey, onChanged: (q) {
+        _query = q;
         _load();
       }),
       Expanded(child: _buildList()),
@@ -64,8 +67,9 @@ class _ListScreenState extends State<ListScreen> {
 
   Widget _buildList() {
     if (_loading) return const Center(child: CircularProgressIndicator());
+    final hasFilter = !_query.isEmpty;
+
     if (_entries.isEmpty) {
-      final hasFilter = _tagsAnd.isNotEmpty || _tagsNot.isNotEmpty || _fulltext != null;
       return Center(child: Padding(padding: const EdgeInsets.all(32), child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -95,5 +99,19 @@ class _ListScreenState extends State<ListScreen> {
         },
       ),
     );
+  }
+
+  String _opStr(DateOp op) {
+    switch (op) {
+      case DateOp.today: return 'today';
+      case DateOp.yesterday: return 'yesterday';
+      case DateOp.tomorrow: return 'tomorrow';
+      case DateOp.thisWeek: return 'this-week';
+      case DateOp.lastWeek: return 'last-week';
+      case DateOp.nextWeek: return 'next-week';
+      case DateOp.thisMonth: return 'this-month';
+      case DateOp.lastMonth: return 'last-month';
+      case DateOp.overdue: return 'overdue';
+    }
   }
 }

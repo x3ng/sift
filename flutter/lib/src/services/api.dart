@@ -67,12 +67,13 @@ class SiftService {
     return bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
   }
 
-  /// List entries with optional tag/due filtering. No special filtering for any tag.
+  /// List entries with optional tag/date filtering.
+  /// [dateFilters] maps tag prefix (e.g. "done", "created") to date op string.
   Future<List<Entry>> list({
     List<String> tagsAnd = const [],
     List<String> tagsOr = const [],
     List<String> tagsNot = const [],
-    String? due,
+    Map<String, String> dateFilters = const {},
   }) async {
     await _load();
     var result = List<Entry>.from(_entries);
@@ -95,6 +96,13 @@ class SiftService {
       } else {
         result.removeWhere((e) => e.tags.any((t) => t == tag));
       }
+    }
+
+    // Date filters on any tag prefix
+    for (final entry in dateFilters.entries) {
+      final prefix = '${entry.key}/';
+      final op = entry.value;
+      result = _applyDateFilter(result, prefix, op);
     }
 
     return result;
@@ -154,6 +162,83 @@ class SiftService {
     final result = counts.entries.map((e) => (e.key, e.value)).toList();
     result.sort((a, b) => b.$2.compareTo(a.$2));
     return result;
+  }
+
+  /// Apply a date filter: entries must have a tag starting with [prefix] whose date
+  /// satisfies [op]. Supported ops: today, yesterday, tomorrow, this-week, last-week,
+  /// next-week, this-month, last-month, overdue.
+  List<Entry> _applyDateFilter(List<Entry> entries, String prefix, String op) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    // Calculate date boundaries for the op
+    DateTime? after;  // inclusive
+    DateTime? before; // inclusive
+
+    switch (op) {
+      case 'today':
+        after = today;
+        before = today.add(const Duration(days: 1)).subtract(const Duration(seconds: 1));
+        break;
+      case 'yesterday':
+        after = today.subtract(const Duration(days: 1));
+        before = today.subtract(const Duration(seconds: 1));
+        break;
+      case 'tomorrow':
+        after = today.add(const Duration(days: 1));
+        before = today.add(const Duration(days: 2)).subtract(const Duration(seconds: 1));
+        break;
+      case 'this-week':
+        after = today.subtract(Duration(days: today.weekday - 1));
+        before = today.add(Duration(days: 7 - today.weekday)).add(const Duration(days: 1)).subtract(const Duration(seconds: 1));
+        break;
+      case 'last-week':
+        after = today.subtract(Duration(days: today.weekday + 6));
+        before = today.subtract(Duration(days: today.weekday)).subtract(const Duration(seconds: 1));
+        break;
+      case 'next-week':
+        after = today.add(Duration(days: 8 - today.weekday));
+        before = today.add(Duration(days: 14 - today.weekday)).add(const Duration(days: 1)).subtract(const Duration(seconds: 1));
+        break;
+      case 'this-month':
+        after = DateTime(today.year, today.month, 1);
+        before = DateTime(today.year, today.month + 1, 1).subtract(const Duration(seconds: 1));
+        break;
+      case 'last-month':
+        after = DateTime(today.year, today.month - 1, 1);
+        before = DateTime(today.year, today.month, 1).subtract(const Duration(seconds: 1));
+        break;
+      case 'overdue':
+        before = today.subtract(const Duration(seconds: 1));
+        break;
+      default:
+        return entries;
+    }
+
+    return entries.where((e) {
+      final dates = e.tags
+          .where((t) => t.startsWith(prefix))
+          .map((t) => _parseTagDate(t.substring(prefix.length)))
+          .where((d) => d != null);
+      return dates.any((d) {
+        if (after != null && d!.isBefore(after)) return false;
+        if (before != null && d!.isAfter(before)) return false;
+        return true;
+      });
+    }).toList();
+  }
+
+  /// Try to parse a date string from a tag value (supports multiple formats)
+  DateTime? _parseTagDate(String s) {
+    // Try ISO format: 2026-05-23 or 2026-05-23T10:00
+    try {
+      return DateTime.parse(s);
+    } catch (_) {}
+    // Try 2026.05.23
+    try {
+      return DateTime.parse(s.replaceAll('.', '-'));
+    } catch (_) {}
+    return null;
   }
 
   Future<List<Entry>> search(String query) async {
