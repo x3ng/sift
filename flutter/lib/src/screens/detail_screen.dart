@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../main.dart';
+import '../services/api.dart';
 import '../widgets/tag_chips.dart';
 
 class DetailScreen extends StatefulWidget {

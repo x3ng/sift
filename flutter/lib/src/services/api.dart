@@ -4,7 +4,6 @@
 
 import 'dart:convert';
 import 'dart:io';
-import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 class Entry {
@@ -49,8 +48,9 @@ class SiftService {
 
   Future<void> init() async {
     final home = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '.';
-    final dataDir = Platform.environment['XDG_DATA_HOME'] ?? p.join(home, '.local', 'share');
-    _dataPath = p.join(dataDir, 'sift', 'entries.jsonl');
+    final sep = Platform.pathSeparator;
+    final dataDir = Platform.environment['XDG_DATA_HOME'] ?? '$home$sep.local${sep}share';
+    _dataPath = '$dataDir${sep}sift${sep}entries.jsonl';
     await _load();
   }
 

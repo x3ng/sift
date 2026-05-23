@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../main.dart';
+import '../services/api.dart';
 import 'detail_screen.dart';
 import '../widgets/entry_card.dart';
 import '../widgets/filter_bar.dart';
