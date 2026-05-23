@@ -14,8 +14,9 @@ class ListScreen extends StatefulWidget {
 class _ListScreenState extends State<ListScreen> {
   List<Entry> _entries = [];
   bool _loading = true;
-  List<String> _activeTags = [];
-  String? _activeDue;
+  List<String> _tagsAnd = [];
+  List<String> _tagsNot = [];
+  String? _fulltext;
   final _filterKey = GlobalKey<FilterBarState>();
 
   @override void initState() {
@@ -25,10 +26,23 @@ class _ListScreenState extends State<ListScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final result = await siftService.list(
-      tagsAnd: _activeTags,
-      due: _activeDue,
+
+    // Apply tag AND/NOT filtering
+    var result = await siftService.list(
+      tagsAnd: _tagsAnd,
+      tagsNot: _tagsNot,
     );
+
+    // Apply full-text search client-side if active
+    if (_fulltext != null && _fulltext!.isNotEmpty) {
+      final q = _fulltext!.toLowerCase();
+      result = result.where((e) =>
+          e.headline.toLowerCase().contains(q) ||
+          e.body.toLowerCase().contains(q) ||
+          e.tags.any((t) => t.toLowerCase().contains(q))
+      ).toList();
+    }
+
     if (mounted) {
       setState(() { _entries = result; _loading = false; });
       _filterKey.currentState?.reloadTags();
@@ -38,9 +52,10 @@ class _ListScreenState extends State<ListScreen> {
   @override
   Widget build(BuildContext context) {
     return Column(children: [
-      FilterBar(key: _filterKey, onChanged: (tags, due) {
-        _activeTags = tags;
-        _activeDue = due;
+      FilterBar(key: _filterKey, onChanged: (andTags, notTags, fulltext) {
+        _tagsAnd = andTags;
+        _tagsNot = notTags;
+        _fulltext = fulltext;
         _load();
       }),
       Expanded(child: _buildList()),
@@ -50,7 +65,7 @@ class _ListScreenState extends State<ListScreen> {
   Widget _buildList() {
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_entries.isEmpty) {
-      final hasFilter = _activeTags.isNotEmpty || _activeDue != null;
+      final hasFilter = _tagsAnd.isNotEmpty || _tagsNot.isNotEmpty || _fulltext != null;
       return Center(child: Padding(padding: const EdgeInsets.all(32), child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
