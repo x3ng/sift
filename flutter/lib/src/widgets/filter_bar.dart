@@ -14,10 +14,8 @@ class FilterBarState extends State<FilterBar> {
   String? _selectedDue;
   List<(String, int)> _allTags = [];
   final _searchCtrl = TextEditingController();
-  bool _expanded = false;
 
-  @override
-  void initState() {
+  @override void initState() {
     super.initState();
     reloadTags();
   }
@@ -29,98 +27,101 @@ class FilterBarState extends State<FilterBar> {
 
   void _emit() => widget.onChanged(_selectedTags, _selectedDue);
 
-  @override
-  Widget build(BuildContext context) {
+  @override void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override Widget build(BuildContext context) {
     final searchText = _searchCtrl.text.toLowerCase();
-    final visible = _allTags
+    final filtered = _allTags
         .where((t) => searchText.isEmpty || t.$1.contains(searchText))
         .toList();
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Search + date + expand row
+        // Search + date row
         Padding(
-          padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
-          child: Row(
-            children: [
-              Expanded(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+          child: Row(children: [
+            Expanded(
+              child: SizedBox(
+                height: 36,
                 child: TextField(
                   controller: _searchCtrl,
                   decoration: InputDecoration(
-                    hintText: 'Filter tags...',
-                    prefixIcon: const Icon(Icons.search, size: 20),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(28)),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    isDense: true,
+                    hintText: 'Search tags...',
+                    prefixIcon: const Icon(Icons.search, size: 18),
+                    suffixIcon: searchText.isNotEmpty
+                        ? IconButton(icon: const Icon(Icons.clear, size: 16), onPressed: () { _searchCtrl.clear(); setState(() {}); })
+                        : null,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(18)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                    filled: true,
+                    fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withAlpha(80),
                   ),
                   onChanged: (_) => setState(() {}),
                 ),
               ),
-              const SizedBox(width: 4),
-              SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: 'today', label: Text('Today', style: TextStyle(fontSize: 11))),
-                  ButtonSegment(value: 'this-week', label: Text('Week', style: TextStyle(fontSize: 11))),
-                ],
-                selected: _selectedDue != null ? {_selectedDue!} : {},
-                emptySelectionAllowed: true,
-                onSelectionChanged: (v) {
-                  setState(() => _selectedDue = v.isEmpty ? null : v.first);
-                  _emit();
-                },
-                style: const ButtonStyle(tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-              ),
-              IconButton(
-                icon: Icon(_expanded ? Icons.expand_less : Icons.expand_more),
-                onPressed: () => setState(() => _expanded = !_expanded),
+            ),
+            const SizedBox(width: 8),
+            SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(value: 'today', label: Text('Today', style: TextStyle(fontSize: 11))),
+                ButtonSegment(value: 'week', label: Text('Week', style: TextStyle(fontSize: 11))),
+              ],
+              selected: _selectedDue != null ? {_selectedDue!} : {},
+              emptySelectionAllowed: true,
+              onSelectionChanged: (v) {
+                setState(() => _selectedDue = v.isEmpty ? null : v.first);
+                _emit();
+              },
+              style: const ButtonStyle(
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 visualDensity: VisualDensity.compact,
               ),
-            ],
-          ),
+            ),
+          ]),
         ),
-        // Active filters as chips
+        // Active filters
         if (_selectedTags.isNotEmpty)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Wrap(
-              spacing: 4,
-              children: _selectedTags.map((t) => Chip(
-                label: Text('#$t', style: const TextStyle(fontSize: 11)),
-                onDeleted: () {
-                  setState(() => _selectedTags.remove(t));
-                  _emit();
-                },
+              spacing: 4, runSpacing: 2,
+              children: _selectedTags.map((t) => InputChip(
+                label: Text('#$t', style: const TextStyle(fontSize: 12)),
+                onDeleted: () { setState(() => _selectedTags.remove(t)); _emit(); },
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 visualDensity: VisualDensity.compact,
               )).toList(),
             ),
           ),
-        // Expandable tag grid
-        if (_expanded)
-          Container(
-            constraints: const BoxConstraints(maxHeight: 200),
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: SingleChildScrollView(
-              child: Wrap(
-                spacing: 4,
-                runSpacing: 4,
-                children: visible.take(40).map((t) => FilterChip(
-                  label: Text('#${t.$1} (${t.$2})', style: const TextStyle(fontSize: 11)),
-                  selected: _selectedTags.contains(t.$1),
-                  onSelected: (sel) {
-                    setState(() {
-                      if (sel) { _selectedTags.add(t.$1); }
-                      else { _selectedTags.remove(t.$1); }
-                    });
-                    _emit();
-                  },
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  visualDensity: VisualDensity.compact,
-                )).toList(),
+        // Tag chips — always visible, scrollable
+        SizedBox(
+          height: _selectedTags.isNotEmpty ? 36 : 40,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            children: filtered.take(50).map((t) => Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: FilterChip(
+                label: Text('#${t.$1}  ${t.$2}', style: const TextStyle(fontSize: 11)),
+                selected: _selectedTags.contains(t.$1),
+                onSelected: (sel) {
+                  setState(() {
+                    if (sel) { _selectedTags.add(t.$1); }
+                    else { _selectedTags.remove(t.$1); }
+                  });
+                  _emit();
+                },
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
               ),
-            ),
+            )).toList(),
           ),
+        ),
         const Divider(height: 1),
       ],
     );

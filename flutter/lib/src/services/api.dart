@@ -68,7 +68,10 @@ class SiftService {
     final file = File(_dataPath);
     file.parent.createSync(recursive: true);
     final lines = _entries.map((e) => jsonEncode(e.toJson())).join('\n');
-    await file.writeAsString(lines + '\n');
+    final sink = file.openWrite();
+    sink.write('$lines\n');
+    await sink.flush();
+    await sink.close();
   }
 
   String _newId() {
