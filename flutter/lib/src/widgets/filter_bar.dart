@@ -44,6 +44,7 @@ class _FilterBarState extends State<FilterBar> {
             ButtonSegment(value: 'this-week', label: Text('Week', style: TextStyle(fontSize: 11))),
           ],
           selected: _selectedDue != null ? {_selectedDue!} : {},
+          emptySelectionAllowed: true,
           onSelectionChanged: (v) {
             setState(() => _selectedDue = v.isEmpty ? null : v.first);
             _emit();
@@ -56,7 +57,10 @@ class _FilterBarState extends State<FilterBar> {
           visualDensity: VisualDensity.compact,
         ),
       ])),
-      if (_expanded) Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: Wrap(
+      if (_expanded) Container(
+        constraints: const BoxConstraints(maxHeight: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: SingleChildScrollView(child: Wrap(
         spacing: 4, runSpacing: 4,
         children: _allTags
           .where((t) => _searchCtrl.text.isEmpty || t.$1.contains(_searchCtrl.text.toLowerCase()))
@@ -74,7 +78,7 @@ class _FilterBarState extends State<FilterBar> {
             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
             visualDensity: VisualDensity.compact,
           )).toList(),
-      )),
+      ))),
     ]);
   }
 }
