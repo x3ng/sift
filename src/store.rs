@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 
 pub struct Store {
     path: PathBuf,
+    #[allow(dead_code)]
     backup_dir: PathBuf,
 }
 

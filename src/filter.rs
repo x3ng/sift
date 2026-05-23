@@ -34,23 +34,18 @@ impl FilterOptions {
 
         // Done filter
         if self.only_done {
-            ids.retain(|id| {
-                index.entries.get(id).map_or(false, |e| e.is_done())
-            });
+            ids.retain(|id| index.entries.get(id).is_some_and(|e| e.is_done()));
         } else if !self.show_done {
-            ids.retain(|id| {
-                index.entries.get(id).map_or(true, |e| !e.is_done())
-            });
+            ids.retain(|id| index.entries.get(id).is_none_or(|e| !e.is_done()));
         }
 
         // Tag intersection (--tag)
         for pattern in &self.tags_and {
             let matching = resolve_tag_pattern(pattern, index);
             ids.retain(|id| {
-                matching.iter().any(|tag| {
-                    index.tag_index.get(tag)
-                        .map_or(false, |s| s.contains(id))
-                })
+                matching
+                    .iter()
+                    .any(|tag| index.tag_index.get(tag).is_some_and(|s| s.contains(id)))
             });
         }
 
@@ -72,10 +67,9 @@ impl FilterOptions {
         for pattern in &self.tags_not {
             let matching = resolve_tag_pattern(pattern, index);
             ids.retain(|id| {
-                !matching.iter().any(|tag| {
-                    index.tag_index.get(tag)
-                        .map_or(false, |s| s.contains(id))
-                })
+                !matching
+                    .iter()
+                    .any(|tag| index.tag_index.get(tag).is_some_and(|s| s.contains(id)))
             });
         }
 
@@ -96,8 +90,8 @@ impl FilterOptions {
                             false
                         }
                     }
-                    DuePeriod::Overdue => due.map_or(false, |d| d < today),
-                    DuePeriod::Before(date) => due.map_or(false, |d| d <= *date),
+                    DuePeriod::Overdue => due.is_some_and(|d| d < today),
+                    DuePeriod::Before(date) => due.is_some_and(|d| d <= *date),
                 }
             });
         }
@@ -109,7 +103,9 @@ impl FilterOptions {
 fn resolve_tag_pattern(pattern: &str, index: &Index) -> Vec<String> {
     if pattern.ends_with('*') {
         let prefix = pattern.trim_end_matches('*');
-        index.tag_counts.keys()
+        index
+            .tag_counts
+            .keys()
             .filter(|t| t.starts_with(prefix))
             .cloned()
             .collect()
@@ -129,21 +125,20 @@ pub fn sort_ids(ids: &mut [Uuid], index: &Index, mode: &SortMode, priority_order
         }
         SortMode::Modified => {
             ids.sort_by_key(|id| {
-                index.entries.get(id)
-                    .and_then(|e| {
-                        e.tags.iter()
-                            .find_map(|t| {
-                                t.strip_prefix("modified/")
-                                    .and_then(|s| NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M").ok())
-                            })
+                index.entries.get(id).and_then(|e| {
+                    e.tags.iter().find_map(|t| {
+                        t.strip_prefix("modified/")
+                            .and_then(|s| NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M").ok())
                     })
+                })
             });
         }
         SortMode::Default => {
             ids.sort_by(|a, b| {
                 let prio_a = priority_score(a, index, priority_order);
                 let prio_b = priority_score(b, index, priority_order);
-                prio_b.cmp(&prio_a)
+                prio_b
+                    .cmp(&prio_a)
                     .then_with(|| index.due_times.get(a).cmp(&index.due_times.get(b)))
                     .then_with(|| index.created_times.get(a).cmp(&index.created_times.get(b)))
             });
@@ -169,20 +164,30 @@ mod tests {
 
     fn test_index() -> Index {
         let entries = vec![
-            Entry::new("urgent task".into(), "".into(), vec![
-                "urgent".into(), "work".into(),
-                "created/2026-05-20T10:00".into(),
-                "due/2026-06-01".into(),
-            ]),
-            Entry::new("normal task".into(), "".into(), vec![
-                "life".into(),
-                "created/2026-05-22T10:00".into(),
-            ]),
-            Entry::new("done task".into(), "".into(), vec![
-                "work".into(),
-                "created/2026-05-19T10:00".into(),
-                "done/2026-05-20T10:00".into(),
-            ]),
+            Entry::new(
+                "urgent task".into(),
+                "".into(),
+                vec![
+                    "urgent".into(),
+                    "work".into(),
+                    "created/2026-05-20T10:00".into(),
+                    "due/2026-06-01".into(),
+                ],
+            ),
+            Entry::new(
+                "normal task".into(),
+                "".into(),
+                vec!["life".into(), "created/2026-05-22T10:00".into()],
+            ),
+            Entry::new(
+                "done task".into(),
+                "".into(),
+                vec![
+                    "work".into(),
+                    "created/2026-05-19T10:00".into(),
+                    "done/2026-05-20T10:00".into(),
+                ],
+            ),
         ];
         let mut idx = Index::new();
         idx.rebuild_from(&entries);

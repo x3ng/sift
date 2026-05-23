@@ -1,13 +1,13 @@
 use clap::{Parser, Subcommand};
 
 mod add;
-mod list;
-mod tag_cmd;
 mod edit;
-mod show;
-mod tags_cmd;
+mod list;
 mod search_cmd;
+mod show;
 mod stats;
+mod tag_cmd;
+mod tags_cmd;
 
 #[derive(Parser)]
 #[command(name = "sift", version, about = "Personal entry tag index tool")]
@@ -66,28 +66,29 @@ pub enum Command {
         body: Option<String>,
     },
     /// Show full entry details
-    Show {
-        id_prefix: String,
-    },
+    Show { id_prefix: String },
     /// List all tags with counts
     Tags {
         #[arg(long)]
         like: Option<String>,
     },
     /// Full-text search in headline and body
-    Search {
-        query: String,
-    },
+    Search { query: String },
     /// Show statistics
     Stats,
+    /// Generate shell completion script
+    Completion {
+        /// Shell (bash, zsh, fish)
+        shell: String,
+    },
 }
 
 pub fn run() {
     let cli = Cli::parse();
 
     use crate::config::Config;
-    use crate::store::Store;
     use crate::index::Index;
+    use crate::store::Store;
 
     let cfg = Config::load().unwrap_or_else(|e| {
         eprintln!("warning: could not load config: {e}, using defaults");
@@ -104,14 +105,54 @@ pub fn run() {
     index.rebuild_from(&entries);
 
     let result = match cli.command {
-        Command::Add { headline, tag, at, body } => add::run(&store, &mut index, &cfg, headline, tag, at, body),
-        Command::List { tags_and, tags_or, tags_not, due, done, all, sort, format } => list::run(&index, &cfg, tags_and, tags_or, tags_not, due, done, all, sort, format),
-        Command::Tag { id_prefix, add, rm, at } => tag_cmd::run(&store, &mut index, &cfg, id_prefix, add, rm, at),
-        Command::Edit { id_prefix, headline, body } => edit::run(&store, &mut index, id_prefix, headline, body),
+        Command::Add {
+            headline,
+            tag,
+            at,
+            body,
+        } => add::run(&store, &mut index, &cfg, headline, tag, at, body),
+        Command::List {
+            tags_and,
+            tags_or,
+            tags_not,
+            due,
+            done,
+            all,
+            sort,
+            format,
+        } => list::run(
+            &index, &cfg, tags_and, tags_or, tags_not, due, done, all, sort, format,
+        ),
+        Command::Tag {
+            id_prefix,
+            add,
+            rm,
+            at,
+        } => tag_cmd::run(&store, &mut index, &cfg, id_prefix, add, rm, at),
+        Command::Edit {
+            id_prefix,
+            headline,
+            body,
+        } => edit::run(&store, &mut index, id_prefix, headline, body),
         Command::Show { id_prefix } => show::run(&index, id_prefix),
         Command::Tags { like } => tags_cmd::run(&index, like),
         Command::Search { query } => search_cmd::run(&index, query),
         Command::Stats => stats::run(&index),
+        Command::Completion { shell } => {
+            use clap::CommandFactory;
+            use clap_complete::{
+                generate,
+                shells::{Bash, Fish, Zsh},
+            };
+            let mut cmd = Cli::command();
+            match shell.as_str() {
+                "bash" => generate(Bash, &mut cmd, "sift", &mut std::io::stdout()),
+                "zsh" => generate(Zsh, &mut cmd, "sift", &mut std::io::stdout()),
+                "fish" => generate(Fish, &mut cmd, "sift", &mut std::io::stdout()),
+                _ => eprintln!("unknown shell: {shell}. supported: bash, zsh, fish"),
+            }
+            Ok(())
+        }
     };
 
     if let Err(e) = result {

@@ -37,10 +37,18 @@ pub struct DisplayConfig {
     pub color: bool,
 }
 
-fn default_editor() -> String { "vim".into() }
-fn default_true() -> bool { true }
-fn default_datetime_fmt() -> String { "%Y-%m-%d %H:%M".into() }
-fn default_date_fmt() -> String { "%Y-%m-%d".into() }
+fn default_editor() -> String {
+    "vim".into()
+}
+fn default_true() -> bool {
+    true
+}
+fn default_datetime_fmt() -> String {
+    "%Y-%m-%d %H:%M".into()
+}
+fn default_date_fmt() -> String {
+    "%Y-%m-%d".into()
+}
 
 fn default_data_dir() -> PathBuf {
     ProjectDirs::from("", "", "sift")
@@ -81,8 +89,8 @@ impl Config {
     }
 
     pub fn default_with_paths() -> Self {
-        let proj = ProjectDirs::from("", "", "sift")
-            .expect("could not determine project directories");
+        let proj =
+            ProjectDirs::from("", "", "sift").expect("could not determine project directories");
         Self {
             editor: default_editor(),
             data_dir: proj.data_dir().to_path_buf(),
@@ -111,7 +119,6 @@ impl Config {
 }
 
 fn config_path() -> PathBuf {
-    let dirs = ProjectDirs::from("", "", "sift")
-        .expect("could not determine project directories");
+    let dirs = ProjectDirs::from("", "", "sift").expect("could not determine project directories");
     dirs.config_dir().join("config.toml")
 }

@@ -18,6 +18,12 @@ pub struct Index {
     pub entries: HashMap<Uuid, Entry>,
 }
 
+impl Default for Index {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Index {
     pub fn new() -> Self {
         Self {
@@ -100,7 +106,11 @@ impl Index {
     }
 
     pub fn all_tags(&self) -> Vec<(String, usize)> {
-        let mut tags: Vec<_> = self.tag_counts.iter().map(|(k, v)| (k.clone(), *v)).collect();
+        let mut tags: Vec<_> = self
+            .tag_counts
+            .iter()
+            .map(|(k, v)| (k.clone(), *v))
+            .collect();
         tags.sort_by(|a, b| b.1.cmp(&a.1));
         tags
     }
@@ -129,8 +139,16 @@ mod tests {
     #[test]
     fn test_index_rebuild() {
         let entries = vec![
-            Entry::new("one".into(), "".into(), vec!["work".into(), "created/2026-05-20T10:00".into()]),
-            Entry::new("two".into(), "".into(), vec!["life".into(), "created/2026-05-21T10:00".into()]),
+            Entry::new(
+                "one".into(),
+                "".into(),
+                vec!["work".into(), "created/2026-05-20T10:00".into()],
+            ),
+            Entry::new(
+                "two".into(),
+                "".into(),
+                vec!["life".into(), "created/2026-05-21T10:00".into()],
+            ),
         ];
         let mut idx = Index::new();
         idx.rebuild_from(&entries);
