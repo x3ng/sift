@@ -2,6 +2,32 @@
 
 Personal entry tag index tool. All organization dimensions are tags — no priority enum, no status field, no hierarchy.
 
+## Development philosophy: engine first, UI second
+
+sift is a **tag engine** with frontends, not a GUI app with a backend. The Rust `SiftCore` is the definitive implementation of the tag combinator system. CLI and GUI are pure consumers — they do not reimplement engine logic.
+
+```
+  ┌─────────────────────────────────┐
+  │  SiftCore (src/)                │
+  │  - Entry CRUD, index, filter    │
+  │  - Combinator parser, resolver  │
+  │  - Tag-space operations (L2)    │  ← definitive engine
+  │  - JSONL store                  │
+  └────────────┬────────────────────┘
+               │ API (frb / FFI / CLI)
+     ┌─────────┴─────────┐
+     ▼                   ▼
+  CLI (clap)        Flutter GUI
+  (src/main.rs)     (flutter/)
+                         │
+                    future third-party
+                    frontends (web, TUI, etc.)
+```
+
+**Rule:** If logic can be implemented in the engine layer, it goes there. UI/frontend layers only handle rendering and interaction. The combinator parser (query syntax, date shorthands, tokenizer) must live in Rust so all frontends share one implementation. Frontend-specific code should be thin — call engine API, display results.
+
+**Transition note:** Currently the Flutter Dart `SiftService` directly reads JSONL because `flutter_rust_bridge` code generation is not yet wired up. The Dart `query.dart` parser is a temporary duplicate of what should be in Rust. When frb is integrated, Dart-side combinator logic moves to Rust and `SiftService` becomes a thin FFI wrapper.
+
 ## Data model
 
 ```rust
