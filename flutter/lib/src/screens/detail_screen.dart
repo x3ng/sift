@@ -81,6 +81,29 @@ class _DetailScreenState extends State<DetailScreen> {
     }
   }
 
+  Future<void> _renameTag(String old) async {
+    final ctrl = TextEditingController(text: old);
+    final r = await showDialog<String>(context: context, builder: (ctx) => AlertDialog(
+      title: const Text('Rename Tag'),
+      content: TextField(
+        controller: ctrl,
+        autofocus: true,
+        decoration: const InputDecoration(hintText: 'new tag name', border: OutlineInputBorder()),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.pop(ctx, ctrl.text), child: const Text('Rename')),
+      ],
+    ));
+    if (r == null || r.isEmpty || r == old) return;
+    await siftService.renameTag(old, r);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Renamed #$old → #$r'), duration: const Duration(seconds: 1)));
+      _notify();
+    }
+  }
+
   Future<void> _editBody() async {
     final ctrl = TextEditingController(text: _entry.body);
     final r = await showDialog<String>(
@@ -157,7 +180,7 @@ class _DetailScreenState extends State<DetailScreen> {
       const SizedBox(height: 12),
 
       // Tags
-      if (tags.isNotEmpty) TagChips(tags: tags, onRemove: _rmTag),
+      if (tags.isNotEmpty) TagChips(tags: tags, onRemove: _rmTag, onTap: _renameTag),
       if (tags.isEmpty)
         const Text('No tags', style: TextStyle(color: Colors.grey, fontSize: 13)),
 
