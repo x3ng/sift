@@ -1,7 +1,8 @@
 use crate::config::Config;
-use crate::entry::Entry;
+use crate::engine::combinator::{parse_query, ParsedQuery};
 use crate::engine::filter::{DuePeriod, FilterOptions, SortMode};
 use crate::engine::index::Index;
+use crate::entry::Entry;
 use crate::io::store::Store;
 use chrono::NaiveDate;
 use std::path::PathBuf;
@@ -55,6 +56,79 @@ impl SiftCore {
         let mut ids = opts.apply(&self.index);
         crate::engine::filter::sort_ids(&mut ids, &self.index, &opts.sort_by, &self.cfg.tags.priority_order);
         Ok(ids.iter().filter_map(|id| self.index.entries.get(id).cloned()).collect())
+    }
+
+    /// Parse a combinator query string and list matching entries.
+    /// Supports the full combinator syntax: #tag, -#tag, prefix:period, @view, "fulltext".
+    pub fn list_parsed(&self, query: &str, show_done: bool) -> Result<Vec<Entry>, String> {
+        let mut pq = parse_query(query);
+        self.resolve_views(&mut pq)?;
+        self.apply_parsed(&pq, show_done)
+    }
+
+    /// Resolve @view references in a ParsedQuery by inlining the view's combinator expression.
+    fn resolve_views(&self, pq: &mut ParsedQuery) -> Result<(), String> {
+        if pq.views.is_empty() {
+            return Ok(());
+        }
+        for view_name in std::mem::take(&mut pq.views) {
+            // Find view entry: has tag "view/" and headline matches view_name
+            let view_entry = self.index.entries.values().find(|e| {
+                e.has_tag("view/") && e.headline.to_lowercase() == view_name.to_lowercase()
+            });
+            let Some(view) = view_entry else {
+                return Err(format!("view not found: @{view_name}"));
+            };
+            if view.body.is_empty() {
+                return Err(format!("view @{view_name} has no body expression"));
+            }
+            // Parse the view body as a combinator expression and merge
+            let view_pq = parse_query(&view.body);
+            pq.tags_and.extend(view_pq.tags_and);
+            pq.tags_not.extend(view_pq.tags_not);
+            pq.dates.extend(view_pq.dates);
+            if let Some(ft) = view_pq.fulltext {
+                pq.fulltext = Some(match pq.fulltext.take() {
+                    Some(existing) => format!("{existing} {ft}"),
+                    None => ft,
+                });
+            }
+        }
+        Ok(())
+    }
+
+    /// Apply an already-parsed (and view-resolved) query to the index.
+    fn apply_parsed(&self, pq: &ParsedQuery, show_done: bool) -> Result<Vec<Entry>, String> {
+        let opts = FilterOptions {
+            tags_and: pq.tags_and.clone(),
+            tags_or: Vec::new(),
+            tags_not: pq.tags_not.clone(),
+            due_period: None,
+            show_done,
+            only_done: false,
+            sort_by: SortMode::Default,
+        };
+        let mut ids = opts.apply(&self.index);
+        crate::engine::filter::sort_ids(
+            &mut ids,
+            &self.index,
+            &opts.sort_by,
+            &self.cfg.tags.priority_order,
+        );
+        let mut entries: Vec<Entry> = ids
+            .iter()
+            .filter_map(|id| self.index.entries.get(id).cloned())
+            .collect();
+        // Apply fulltext filter
+        if let Some(ref ft) = pq.fulltext {
+            let q = ft.to_lowercase();
+            entries.retain(|e| {
+                e.headline.to_lowercase().contains(&q)
+                    || e.body.to_lowercase().contains(&q)
+                    || e.tags.iter().any(|t| t.to_lowercase().contains(&q))
+            });
+        }
+        Ok(entries)
     }
 
     pub fn done(&mut self, id: String) -> Result<bool, String> {
