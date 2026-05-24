@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../main.dart';
 import '../services/api.dart';
 import '../widgets/tag_chips.dart';
+import '../widgets/tag_combinator.dart';
 
 class DetailScreen extends StatefulWidget {
   final Entry entry;
@@ -14,21 +15,11 @@ class DetailScreen extends StatefulWidget {
 
 class _DetailScreenState extends State<DetailScreen> {
   late Entry _entry;
-  final _tagCtrl = TextEditingController();
-  List<String> _allTags = [];
 
   @override
   void initState() {
     super.initState();
     _entry = widget.entry;
-    _loadAllTags();
-  }
-
-  Future<void> _loadAllTags() async {
-    final tags = await siftService.allTags();
-    if (mounted) {
-      setState(() => _allTags = tags.map((t) => t.$1).toList());
-    }
   }
 
   Future<void> _reload() async {
@@ -64,13 +55,6 @@ class _DetailScreenState extends State<DetailScreen> {
       widget.onChanged?.call();
       if (mounted) Navigator.pop(context);
     }
-  }
-
-  Future<void> _addTag(String tag) async {
-    if (tag.isEmpty) return;
-    await siftService.tag(_entry.idPrefix, addTags: [tag]);
-    _notify();
-    _tagCtrl.clear();
   }
 
   Future<void> _rmTag(String tag) async {
@@ -118,17 +102,12 @@ class _DetailScreenState extends State<DetailScreen> {
 
   @override
   void dispose() {
-    _tagCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final tags = List<String>.from(_entry.tags);
-    final suggestions = _allTags
-        .where((t) => t.contains(_tagCtrl.text.toLowerCase()) && !_entry.tags.contains(t))
-        .take(6)
-        .toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -148,14 +127,12 @@ class _DetailScreenState extends State<DetailScreen> {
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
-        children: _buildBody(context, tags, suggestions),
+        children: _buildBody(context, tags),
       ),
     );
   }
 
-  List<Widget> _buildBody(BuildContext context, List<String> tags, List<String> suggestions) {
-    final cs = Theme.of(context).colorScheme;
-
+  List<Widget> _buildBody(BuildContext context, List<String> tags) {
     return [
       // Headline
       Row(
@@ -186,48 +163,22 @@ class _DetailScreenState extends State<DetailScreen> {
 
       const SizedBox(height: 8),
 
-      // Add tag
-      Row(children: [
-        Expanded(
-          child: SizedBox(
-            height: 40,
-            child: TextField(
-              controller: _tagCtrl,
-              decoration: InputDecoration(
-                hintText: 'Add tag...',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(20)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                isDense: true,
-                filled: true,
-                fillColor: cs.surfaceContainerHighest.withAlpha(60),
-              ),
-              onSubmitted: (v) => _addTag(v.trim()),
-              onChanged: (_) => setState(() {}),
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        IconButton.filledTonal(
-          onPressed: () => _addTag(_tagCtrl.text.trim()),
-          icon: const Icon(Icons.add, size: 18),
-        ),
-      ]),
-
-      // Tag suggestions
-      if (suggestions.isNotEmpty)
-        Padding(
-          padding: const EdgeInsets.only(top: 6),
-          child: Wrap(
-            spacing: 4,
-            runSpacing: 4,
-            children: suggestions.map((t) => ActionChip(
-              label: Text('#$t', style: const TextStyle(fontSize: 12)),
-              onPressed: () => _addTag(t),
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              visualDensity: VisualDensity.compact,
-            )).toList(),
-          ),
-        ),
+      // Tag management with combinator
+      TagCombinator(
+        mode: CombinatorMode.tagging,
+        initialTags: List.from(_entry.tags),
+        hint: 'Add tag...  done:today  work/rtd',
+        onChanged: (tags, _) async {
+          final current = Set<String>.from(_entry.tags);
+          final incoming = Set<String>.from(tags);
+          final toAdd = incoming.difference(current).toList();
+          final toRemove = current.difference(incoming).toList();
+          if (toAdd.isNotEmpty || toRemove.isNotEmpty) {
+            await siftService.tag(_entry.idPrefix, addTags: toAdd, rmTags: toRemove);
+            _notify();
+          }
+        },
+      ),
 
       const Divider(height: 24),
 
