@@ -123,6 +123,28 @@ impl SiftCore {
         Ok(true)
     }
 
+    /// Rename a tag globally across all entries. Returns count modified.
+    pub fn rename_tag(&mut self, old: &str, new: &str) -> Result<usize, String> {
+        let mut entries = self.store.read_all().map_err(|e| e.to_string())?;
+        let mut modified = 0;
+        for entry in &mut entries {
+            if entry.tags.contains(&old.to_string()) {
+                entry.tags.retain(|t| t != old);
+                if !entry.tags.contains(&new.to_string()) {
+                    entry.tags.push(new.to_string());
+                }
+                entry.tags.sort();
+                entry.tags.dedup();
+                modified += 1;
+            }
+        }
+        if modified > 0 {
+            self.store.write_all(&entries).map_err(|e| e.to_string())?;
+            self.reload()?;
+        }
+        Ok(modified)
+    }
+
     pub fn all_tags(&self) -> Vec<(String, usize)> {
         self.index.all_tags()
     }

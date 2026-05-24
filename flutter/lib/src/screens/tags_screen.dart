@@ -23,6 +23,34 @@ class _TagsScreenState extends State<TagsScreen> {
     if (mounted) setState(() { _tags = tags; _loading = false; });
   }
 
+  Future<void> _renameTag(String old) async {
+    final ctrl = TextEditingController(text: old);
+    final r = await showDialog<String>(context: context, builder: (ctx) => AlertDialog(
+      title: const Text('Rename Tag'),
+      content: TextField(
+        controller: ctrl,
+        autofocus: true,
+        decoration: const InputDecoration(
+          hintText: 'new tag name',
+          border: OutlineInputBorder(),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.pop(ctx, ctrl.text), child: const Text('Rename')),
+      ],
+    ));
+    if (r == null || r.isEmpty || r == old) return;
+    final count = await siftService.renameTag(old, r);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Renamed #$old → #$r ($count entries)'),
+        duration: const Duration(seconds: 2),
+      ));
+      _load();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -50,6 +78,7 @@ class _TagsScreenState extends State<TagsScreen> {
                       title: Text('#$tag'),
                       trailing: const Icon(Icons.chevron_right, size: 18),
                       onTap: widget.onTagTap != null ? () => widget.onTagTap!(tag) : null,
+                      onLongPress: () => _renameTag(tag),
                     );
                   },
                 ),

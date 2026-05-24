@@ -241,6 +241,22 @@ class SiftService {
     return null;
   }
 
+  /// Rename a tag globally across all entries. Returns count modified.
+  Future<int> renameTag(String old, String newTag) async {
+    await _load();
+    var modified = 0;
+    for (final e in _entries) {
+      if (e.tags.contains(old)) {
+        e.tags.remove(old);
+        if (!e.tags.contains(newTag)) e.tags.add(newTag);
+        e.tags.sort();
+        modified++;
+      }
+    }
+    if (modified > 0) await _save();
+    return modified;
+  }
+
   /// Export all entries to a JSONL file
   Future<void> exportTo(String path) async {
     await _load();
