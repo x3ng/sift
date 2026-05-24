@@ -84,7 +84,38 @@ flutter/              # Flutter cross-platform GUI
 
 CLI and GUI share `~/.local/share/sift/entries.jsonl` — same data, same format.
 
-## Query syntax
+## Combinator system
+
+sift uses a composable tag combinator language — think Vim (operators + motions = commands). Primitives combine to form expressions. The same combinator engine powers both search and tag input.
+
+### Primitives
+
+| Token | Role | Search (filter) | Tag Input |
+|-------|------|-----------------|-----------|
+| `#` | include operator | `#urgent` → filter by tag | N/A |
+| `-` | exclude operator | `-#blocked` → exclude | N/A |
+| `/` | hierarchy separator | `#work/rtd` → match subtree | `work/rtd` → nested tag |
+| `:` | date resolver | `done:this-week` → period filter | `done:today` → expands to `done/2026-05-24` |
+| `*` | wildcard | `#work/*` → any sub-tag | N/A |
+| `"` | quoting | `"fix login"` → literal fulltext | `"tag with spaces"` → literal tag |
+
+### Operation layers
+
+| Layer | Operates on | Operations | Status |
+|-------|-------------|------------|--------|
+| L0: Atoms | Tag strings | Normalize, validate reserved chars | done |
+| L1: Entry ops | Individual entries | CRUD, filter, search, batch | active |
+| L2: Tag-space ops | The tag index | Global rename, merge, analytics | planned |
+
+UI (CLI, Flutter, future third-party) is a pure consumer of the engine — anyone can build a frontend on top of `SiftCore`.
+
+### Conflict prevention
+
+- `#` and `-` are reserved — tag names cannot start with them. Validation at creation time.
+- `:` is only an operator when LHS matches `date_prefixes` in config.toml. Otherwise it's literal.
+- `/` is always user content — no conflict.
+
+### Query syntax
 
 | Syntax | Meaning |
 |--------|---------|
