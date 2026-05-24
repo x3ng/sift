@@ -1,6 +1,7 @@
 /target
 docs/superpowers/
 flutter/rust/target/
+flutter/android/build/
 flutter/build/
 .dart_tool/
 .flutter-plugins*
