@@ -8,5 +8,6 @@ flutter/build/
 *.iml
 .idea/
 .vscode/
+.superpowers/
 *.swp
 *~
