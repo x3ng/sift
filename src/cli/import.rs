@@ -1,6 +1,6 @@
 use crate::entry::Entry;
-use crate::index::Index;
-use crate::store::Store;
+use crate::engine::index::Index;
+use crate::io::store::Store;
 use std::fs;
 use std::io::BufRead;
 

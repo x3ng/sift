@@ -1,5 +1,5 @@
-use crate::index::Index;
-use crate::store::Store;
+use crate::engine::index::Index;
+use crate::io::store::Store;
 use uuid::Uuid;
 
 pub fn run(

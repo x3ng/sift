@@ -1,7 +1,7 @@
 use crate::config::Config;
 use crate::entry::Entry;
-use crate::index::Index;
-use crate::store::Store;
+use crate::engine::index::Index;
+use crate::io::store::Store;
 use chrono::Local;
 
 pub fn run(

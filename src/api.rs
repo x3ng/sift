@@ -1,8 +1,8 @@
 use crate::config::Config;
 use crate::entry::Entry;
-use crate::filter::{DuePeriod, FilterOptions, SortMode};
-use crate::index::Index;
-use crate::store::Store;
+use crate::engine::filter::{DuePeriod, FilterOptions, SortMode};
+use crate::engine::index::Index;
+use crate::io::store::Store;
 use chrono::NaiveDate;
 use std::path::PathBuf;
 
@@ -53,7 +53,7 @@ impl SiftCore {
             sort_by: sort_mode,
         };
         let mut ids = opts.apply(&self.index);
-        crate::filter::sort_ids(&mut ids, &self.index, &opts.sort_by, &self.cfg.tags.priority_order);
+        crate::engine::filter::sort_ids(&mut ids, &self.index, &opts.sort_by, &self.cfg.tags.priority_order);
         Ok(ids.iter().filter_map(|id| self.index.entries.get(id).cloned()).collect())
     }
 

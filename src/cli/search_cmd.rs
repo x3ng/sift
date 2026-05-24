@@ -1,4 +1,4 @@
-use crate::index::Index;
+use crate::engine::index::Index;
 
 pub fn run(index: &Index, query: String) -> Result<(), Box<dyn std::error::Error>> {
     let query_lower = query.to_lowercase();

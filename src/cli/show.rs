@@ -1,4 +1,4 @@
-use crate::index::Index;
+use crate::engine::index::Index;
 use uuid::Uuid;
 
 pub fn run(index: &Index, id_prefix: String) -> Result<(), Box<dyn std::error::Error>> {

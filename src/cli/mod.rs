@@ -120,8 +120,8 @@ pub fn run() {
     let cli = Cli::parse();
 
     use crate::config::Config;
-    use crate::index::Index;
-    use crate::store::Store;
+    use crate::engine::index::Index;
+    use crate::io::store::Store;
 
     let cfg = Config::load().unwrap_or_else(|e| {
         eprintln!("warning: could not load config: {e}, using defaults");

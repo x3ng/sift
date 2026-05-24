@@ -1,6 +1,6 @@
 use crate::config::Config;
-use crate::filter::{self, DuePeriod, FilterOptions, SortMode};
-use crate::index::Index;
+use crate::engine::filter::{self, DuePeriod, FilterOptions, SortMode};
+use crate::engine::index::Index;
 use chrono::NaiveDate;
 use comfy_table::Table;
 use serde_json;

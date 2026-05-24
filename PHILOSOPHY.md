@@ -68,6 +68,54 @@ A named view is a saved combinator expression — "a tag expression given a name
 
 Views persist in `~/.config/sift/views.json`. API: `save_view`, `list_views`, `get_view`, `delete_view`.
 
+## The lambda architecture
+
+sift's combinators mirror lambda calculus: three levels of abstraction over the tag space.
+
+| Calculus | sift | Syntax | Meaning |
+|---|---|---|---|
+| **λs** (body-level) | Fulltext search | `"keyword"` | Match text in headline/body/tags |
+| **λp** (tag-level) | Predicate filtering | `#tag`, `-#tag`, `tag/*`, `tag:period` | Filter entries by tag membership |
+| **λc** (combinator-level) | Named view | `@view` | Reference a named combinator expression |
+| **Composition** | AND, OR | token chain, `#a,#b` | Combine expressions |
+| **Application** | Filter execution | `(filter)(entries)` | Apply filter to entry set |
+
+Future: **λm** (meta-level) — operations on views themselves: view intersection, union, difference, analytics. Deferred until needed.
+
+## Combinator grammar (formal)
+
+```
+expression := clause+
+clause     := include | exclude | view | date | fulltext
+include    := '#' tag-name ['/*']
+exclude    := '-#' tag-name ['/*']
+view       := '@' view-name
+date       := prefix ':' period
+fulltext   := '"' text '"' | bare-word
+tag-name   := [a-zA-Z0-9][a-zA-Z0-9._-]* ('/' [a-zA-Z0-9][a-zA-Z0-9._-]*)*
+```
+
+## Core architecture: IO / Engine separation
+
+```
+src/
+├── entry.rs          # Data model: Entry struct
+├── config.rs         # XDG, TOML, date_prefixes
+├── io/
+│   └── store.rs      # JSONL read/write — pure I/O, no logic
+├── engine/
+│   ├── index.rs      # In-memory tag→ids mapping
+│   ├── filter.rs     # Filter ops on index
+│   └── combinator.rs # Query tokenizer / parser / @view resolver
+├── api.rs            # SiftCore — thin coordinator, wires io + engine
+├── main.rs           # CLI binary entry point
+└── cli/              # CLI commands (consume api.rs)
+```
+
+- `io/` — pure I/O, testable with temp files
+- `engine/` — pure logic, testable in-memory
+- `api.rs` — thin facade, no logic
+
 ## Minimalism
 
 - One storage file: JSONL. No database.

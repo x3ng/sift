@@ -1,4 +1,4 @@
-use crate::index::Index;
+use crate::engine::index::Index;
 
 pub fn run(index: &Index) -> Result<(), Box<dyn std::error::Error>> {
     let total = index.entries.len();
