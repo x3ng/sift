@@ -13,6 +13,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   String? _tagFilter;
+  var _reloadKey = 0;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   void _openAdd() {
@@ -21,7 +22,7 @@ class _HomeScreenState extends State<HomeScreen> {
         appBar: AppBar(title: const Text('New Entry')),
         body: AddScreen(onAdded: () => Navigator.pop(context)),
       ),
-    )).then((_) => setState(() {}));
+    )).then((_) => setState(() => _reloadKey++));
   }
 
   Future<void> _showExportDialog() async {
@@ -169,15 +170,15 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildPage() {
     switch (_selectedIndex) {
       case 0:
-        return ListScreen(tagFilter: _tagFilter, onFilterApplied: () => setState(() => _tagFilter = null));
+        return ListScreen(key: ValueKey(_reloadKey), tagFilter: _tagFilter, onFilterApplied: () => setState(() => _tagFilter = null));
       case 1:
         return TagsScreen(onTagTap: (tag) {
           _tagFilter = tag;
           _selectedIndex = 0;
-          setState(() {});
+          setState(() => _reloadKey++);
         });
       default:
-        return ListScreen(tagFilter: null, onFilterApplied: () {});
+        return ListScreen(key: ValueKey(_reloadKey), tagFilter: null, onFilterApplied: () {});
     }
   }
 }

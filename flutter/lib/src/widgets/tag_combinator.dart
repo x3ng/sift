@@ -192,9 +192,16 @@ class TagCombinatorState extends State<TagCombinator> {
     return tokens;
   }
 
-  String _todayStr() {
+  String _todayStr() => _dateStr('today');
+
+  String _dateStr(String op) {
     final n = DateTime.now();
-    return '${n.year}-${_pad(n.month)}-${_pad(n.day)}';
+    final d = switch (op) {
+      'yesterday' => n.subtract(const Duration(days: 1)),
+      'tomorrow' => n.add(const Duration(days: 1)),
+      _ => n,
+    };
+    return '${d.year}-${_pad(d.month)}-${_pad(d.day)}';
   }
 
   // ---- SUGGESTIONS ----
@@ -218,13 +225,27 @@ class TagCombinatorState extends State<TagCombinator> {
       for (final t in tagMatches) {
         ws.add(_chip('#${t.$1}', '${t.$2} entries', Icons.label_outline, () => _addTag(t.$1)));
       }
-      // Date shorthands in tagging mode
+      // Date shorthands in tagging mode — any prefix:dateop
       if (!_isSearch && text.isNotEmpty) {
-        if ('done'.contains(text)) {
-          ws.add(_chip('done:today -> done/${_todayStr()}', 'Date shorthand', Icons.today, () => _addTag('done/${_todayStr()}')));
-        }
-        if ('due'.contains(text)) {
-          ws.add(_chip('due:today -> due/${_todayStr()}', 'Date shorthand', Icons.date_range, () => _addTag('due/${_todayStr()}')));
+        final colon = text.indexOf(':');
+        if (colon > 0) {
+          // User typed "prefix:" — show date completions for that prefix
+          final prefix = text.substring(0, colon);
+          final after = text.substring(colon + 1);
+          for (final dp in ['today', 'tomorrow', 'yesterday']) {
+            if (dp.startsWith(after) || after.isEmpty) {
+              final expanded = '$prefix/${_dateStr(dp)}';
+              ws.add(_chip('$prefix:$dp → $expanded', 'Date', Icons.today, () => _addTag(expanded)));
+            }
+          }
+        } else {
+          // Show date shorthand hint for any prefix match
+          for (final prefix in _allTags.take(10).map((t) => t.$1.split('/').first).toSet().take(4)) {
+            if (prefix.startsWith(text) && text.isNotEmpty) {
+              final expanded = '$prefix/${_todayStr()}';
+              ws.add(_chip('$prefix:today → $expanded', 'Date shorthand', Icons.today, () => _addTag(expanded)));
+            }
+          }
         }
       }
       // Fulltext in search mode

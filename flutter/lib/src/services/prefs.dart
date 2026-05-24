@@ -1,10 +1,16 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:path_provider/path_provider.dart';
+
 /// GUI-managed preferences — doesn't touch CLI's entries.jsonl.
 /// Stores default filter, layout preferences, etc.
 class Prefs {
   static Future<File> _file() async {
+    if (Platform.isAndroid || Platform.isIOS) {
+      final dir = await getApplicationDocumentsDirectory();
+      return File('${dir.path}/prefs.json');
+    }
     final home = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '.';
     final sep = Platform.pathSeparator;
     final dataDir = Platform.environment['XDG_DATA_HOME'] ?? '$home$sep.local${sep}share';
