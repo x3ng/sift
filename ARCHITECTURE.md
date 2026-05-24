@@ -131,9 +131,22 @@ sift uses a composable tag combinator language — think Vim (operators + motion
 |-------|-------------|------------|--------|
 | L0: Atoms | Tag strings | Normalize, validate reserved chars | done |
 | L1: Entry ops | Individual entries | CRUD, filter, search, batch | active |
-| L2: Tag-space ops | The tag index | Global rename, merge, analytics | planned |
+| L2: Tag-space ops | The tag index | Global rename, merge, named views, analytics | planned |
 
 UI (CLI, Flutter, future third-party) is a pure consumer of the engine — anyone can build a frontend on top of `SiftCore`.
+
+### Named views (L2)
+
+A **named view** is a saved combinator expression — essentially "a tag expression given a name." This is an engine-level concept, not a UI feature. The core stores named queries; frontends render them as tabs, bookmarks, or CLI shortcuts as they see fit.
+
+```
+"Work" = #work/* -#done/*
+"Urgent" = #urgent -#done/*
+"Done" = #done/*
+```
+
+`SiftCore` provides: `save_view(name, tokens)`, `list_views()`, `get_view(name)`, `delete_view(name)`.
+Views persist in `~/.config/sift/views.json` — separate from entry data, user-configurable.
 
 ### Conflict prevention
 
