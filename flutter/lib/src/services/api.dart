@@ -283,4 +283,44 @@ class SiftService {
         e.tags.any((t) => t.toLowerCase().contains(q))
     ).toList();
   }
+
+  /// Delete multiple entries by id prefixes. Returns count deleted.
+  Future<int> batchDelete(List<String> idPrefixes) async {
+    await _load();
+    var deleted = 0;
+    for (final prefix in idPrefixes) {
+      final before = _entries.length;
+      _entries.removeWhere((e) => e.id.startsWith(prefix));
+      if (_entries.length < before) deleted++;
+    }
+    if (deleted > 0) await _save();
+    return deleted;
+  }
+
+  /// Add/remove tags on multiple entries. Returns count modified.
+  Future<int> batchTag(List<String> idPrefixes, {List<String> addTags = const [], List<String> rmTags = const []}) async {
+    await _load();
+    var modified = 0;
+    for (final prefix in idPrefixes) {
+      final e = _entries.where((e) => e.id.startsWith(prefix)).firstOrNull;
+      if (e == null) continue;
+      var changed = false;
+      for (final tag in addTags) {
+        if (!e.tags.contains(tag)) { e.tags.add(tag); changed = true; }
+      }
+      for (final pattern in rmTags) {
+        if (pattern.endsWith('*')) {
+          final p = pattern.substring(0, pattern.length - 1);
+          final before = e.tags.length;
+          e.tags.removeWhere((t) => t.startsWith(p));
+          if (e.tags.length < before) changed = true;
+        } else {
+          if (e.tags.remove(pattern)) changed = true;
+        }
+      }
+      if (changed) { e.tags.sort(); e.tags = e.tags.toSet().toList(); modified++; }
+    }
+    if (modified > 0) await _save();
+    return modified;
+  }
 }
