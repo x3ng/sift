@@ -22,19 +22,22 @@ class _ListScreenState extends State<ListScreen> {
   final _filterKey = GlobalKey<FilterBarState>();
   bool _filterPinned = false;
 
-  @override void initState() {
+  // Selection state
+  bool _selectionMode = false;
+  final _selectedIds = <String>{};
+
+  @override
+  void initState() {
     super.initState();
     _loadDefaultFilter();
   }
 
   Future<void> _loadDefaultFilter() async {
-    // If navigated from Tags page with a tag filter, apply it first
     if (widget.tagFilter != null && mounted) {
       _filterKey.currentState?.applyTokens(['#${widget.tagFilter}']);
       widget.onFilterApplied?.call();
       return;
     }
-
     final tokens = await Prefs.getDefaultFilter();
     if (tokens != null && tokens.isNotEmpty && mounted) {
       _filterPinned = true;
@@ -46,18 +49,15 @@ class _ListScreenState extends State<ListScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-
     final dateFilters = <String, String>{};
     for (final dc in _query.dates) {
       dateFilters[dc.prefix] = _opStr(dc.op);
     }
-
     var result = await siftService.list(
       tagsAnd: _query.tagsAnd,
       tagsNot: _query.tagsNot,
       dateFilters: dateFilters,
     );
-
     if (_query.fulltext != null && _query.fulltext!.isNotEmpty) {
       final q = _query.fulltext!.toLowerCase();
       result = result.where((e) =>
@@ -66,7 +66,6 @@ class _ListScreenState extends State<ListScreen> {
           e.tags.any((t) => t.toLowerCase().contains(q))
       ).toList();
     }
-
     if (mounted) {
       setState(() { _entries = result; _loading = false; });
       _filterKey.currentState?.reloadTags();
@@ -77,24 +76,114 @@ class _ListScreenState extends State<ListScreen> {
     final tokens = _filterKey.currentState?.getTokens() ?? [];
     await Prefs.setDefaultFilter(tokens);
     setState(() => _filterPinned = tokens.isNotEmpty);
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(tokens.isEmpty ? 'Default filter cleared' : 'Default filter saved'),
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(tokens.isEmpty ? 'Default filter cleared' : 'Default filter saved'),
         duration: const Duration(seconds: 1)));
+    }
+  }
+
+  // -- Selection --
+
+  void _enterSelection(Entry entry) {
+    setState(() {
+      _selectionMode = true;
+      _selectedIds.add(entry.idPrefix);
+    });
+  }
+
+  void _toggleSelection(Entry entry) {
+    setState(() {
+      if (_selectedIds.contains(entry.idPrefix)) {
+        _selectedIds.remove(entry.idPrefix);
+        if (_selectedIds.isEmpty) _selectionMode = false;
+      } else {
+        _selectedIds.add(entry.idPrefix);
+      }
+    });
+  }
+
+  void _exitSelection() {
+    setState(() { _selectionMode = false; _selectedIds.clear(); });
+  }
+
+  Future<void> _batchTag() async {
+    final ctrl = TextEditingController();
+    final r = await showDialog<String>(context: context, builder: (ctx) => AlertDialog(
+      title: const Text('Batch Tag'),
+      content: TextField(
+        controller: ctrl,
+        autofocus: true,
+        decoration: const InputDecoration(
+          hintText: 'tag1 tag2 ... (space separated)',
+          border: OutlineInputBorder(),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.pop(ctx, ctrl.text), child: const Text('Add Tags')),
+      ],
+    ));
+    if (r == null || r.trim().isEmpty) return;
+    final addTags = r.trim().split(RegExp(r'\s+')).where((t) => t.isNotEmpty).toList();
+    final count = await siftService.batchTag(_selectedIds.toList(), addTags: addTags);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Tagged $count entries'), duration: const Duration(seconds: 1)));
+      _exitSelection();
+      _load();
+    }
+  }
+
+  Future<void> _batchDelete() async {
+    final ok = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+      title: const Text('Delete Selected'),
+      content: Text('Delete ${_selectedIds.length} entries? This cannot be undone.'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+        FilledButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          style: FilledButton.styleFrom(backgroundColor: Theme.of(ctx).colorScheme.error),
+          child: const Text('Delete'),
+        ),
+      ],
+    ));
+    if (ok != true) return;
+    final count = await siftService.batchDelete(_selectedIds.toList());
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Deleted $count entries'), duration: const Duration(seconds: 1)));
+      _exitSelection();
+      _load();
+    }
+  }
+
+  String _opStr(DateOp op) {
+    switch (op) {
+      case DateOp.today: return 'today';
+      case DateOp.yesterday: return 'yesterday';
+      case DateOp.tomorrow: return 'tomorrow';
+      case DateOp.thisWeek: return 'this-week';
+      case DateOp.lastWeek: return 'last-week';
+      case DateOp.nextWeek: return 'next-week';
+      case DateOp.thisMonth: return 'this-month';
+      case DateOp.lastMonth: return 'last-month';
+      case DateOp.overdue: return 'overdue';
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Column(children: [
-      FilterBar(key: _filterKey, onChanged: (q) {
-        _query = q;
-        _load();
-      }, trailing: IconButton(
-        icon: Icon(_filterPinned ? Icons.push_pin : Icons.push_pin_outlined, size: 18),
-        tooltip: _filterPinned ? 'Update pinned filter' : 'Pin as default',
-        onPressed: _pinCurrentFilter,
-        visualDensity: VisualDensity.compact,
-      )),
+      FilterBar(key: _filterKey, onChanged: (q) { _query = q; _load(); },
+        trailing: _selectionMode ? null : IconButton(
+          icon: Icon(_filterPinned ? Icons.push_pin : Icons.push_pin_outlined, size: 18),
+          tooltip: _filterPinned ? 'Update pinned filter' : 'Pin as default',
+          onPressed: _pinCurrentFilter,
+          visualDensity: VisualDensity.compact,
+        )),
       Expanded(child: _buildList()),
+      if (_selectionMode) _buildActionBar(),
     ]);
   }
 
@@ -124,27 +213,52 @@ class _ListScreenState extends State<ListScreen> {
       itemCount: _entries.length,
       itemBuilder: (ctx, i) => EntryCard(
         entry: _entries[i],
-        onTap: () async {
-          await Navigator.push(ctx, MaterialPageRoute(
-            builder: (_) => DetailScreen(entry: _entries[i], onChanged: _load),
-          ));
-          _load();
+        selectionMode: _selectionMode,
+        selected: _selectedIds.contains(_entries[i].idPrefix),
+        onTap: () {
+          if (_selectionMode) {
+            _toggleSelection(_entries[i]);
+          } else {
+            Navigator.push(ctx, MaterialPageRoute(
+              builder: (_) => DetailScreen(entry: _entries[i], onChanged: _load),
+            )).then((_) => _load());
+          }
         },
+        onLongPress: () => _enterSelection(_entries[i]),
       ),
     );
   }
 
-  String _opStr(DateOp op) {
-    switch (op) {
-      case DateOp.today: return 'today';
-      case DateOp.yesterday: return 'yesterday';
-      case DateOp.tomorrow: return 'tomorrow';
-      case DateOp.thisWeek: return 'this-week';
-      case DateOp.lastWeek: return 'last-week';
-      case DateOp.nextWeek: return 'next-week';
-      case DateOp.thisMonth: return 'this-month';
-      case DateOp.lastMonth: return 'last-month';
-      case DateOp.overdue: return 'overdue';
-    }
+  Widget _buildActionBar() {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 10, 8, 16),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHigh,
+        border: Border(top: BorderSide(color: cs.outlineVariant)),
+      ),
+      child: Row(children: [
+        Text('${_selectedIds.length} selected',
+          style: TextStyle(fontWeight: FontWeight.w600, color: cs.primary)),
+        const Spacer(),
+        FilledButton.tonalIcon(
+          onPressed: _batchTag,
+          icon: const Icon(Icons.label_outline, size: 18),
+          label: const Text('Tag'),
+        ),
+        const SizedBox(width: 8),
+        FilledButton.tonalIcon(
+          onPressed: _batchDelete,
+          icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+          label: const Text('Delete', style: TextStyle(color: Colors.red)),
+        ),
+        const SizedBox(width: 8),
+        IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: _exitSelection,
+          tooltip: 'Cancel selection',
+        ),
+      ]),
+    );
   }
 }
