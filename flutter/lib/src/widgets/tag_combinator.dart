@@ -355,7 +355,7 @@ class TagCombinatorState extends State<TagCombinator> {
                     ? IconButton(icon: Icon(Icons.close, size: 16, color: cs.outline), onPressed: _clearAll)
                     : null,
                 border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
               ),
               onSubmitted: _onSubmit,
               onChanged: (_) => setState(() => _showSuggestions = true),

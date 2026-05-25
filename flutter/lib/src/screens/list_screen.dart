@@ -33,7 +33,9 @@ class _ListScreenState extends State<ListScreen> {
   Future<void> _loadDefaultFilter() async {
     if (widget.tagFilter != null && mounted) {
       _filterKey.currentState?.applyTokens(['#${widget.tagFilter}']);
-      widget.onFilterApplied?.call();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        widget.onFilterApplied?.call();
+      });
       return;
     }
     final tokens = await Prefs.getDefaultFilter();

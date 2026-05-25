@@ -141,10 +141,15 @@ impl FilterOptions {
                     };
 
                     if df.prefix == "*" {
-                        // Match any tag with a date value
+                        // Match any tag that has a parseable date after '/'
                         entry.tags.iter().any(|t| {
-                            // Try to extract a date from any tag containing '/'
-                            t.split('/').nth(0).and_then(|_| match_date(t, t.split('/').next().unwrap())).is_some_and(|date| matches_period(date))
+                            t.find('/').and_then(|pos| {
+                                let value = &t[pos + 1..];
+                                NaiveDateTime::parse_from_str(value, "%Y-%m-%dT%H:%M")
+                                    .or_else(|_| NaiveDate::parse_from_str(value, "%Y-%m-%d")
+                                        .map(|d| d.and_hms_opt(0, 0, 0).unwrap()))
+                                    .ok()
+                            }).is_some_and(|dt| matches_period(dt.date()))
                         })
                     } else {
                         entry.tags.iter().any(|t| {
