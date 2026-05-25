@@ -1,8 +1,7 @@
-use crate::engine::filter::{DuePeriod, FilterOptions, SortMode};
+use crate::engine::filter::{DateFilter, DateOp, FilterOptions, SortMode};
 use crate::engine::index::Index;
 use crate::io::store::Store;
 use chrono::Local;
-use chrono::NaiveDate;
 use uuid::Uuid;
 
 #[allow(clippy::too_many_arguments)]
@@ -18,20 +17,17 @@ pub fn run(
     rm_tags: Vec<String>,
     delete: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    // Apply filters to find matching entries
-    let due_period = match due.as_deref() {
-        Some("today") => Some(DuePeriod::Today),
-        Some("this-week") => Some(DuePeriod::ThisWeek),
-        Some("overdue") => Some(DuePeriod::Overdue),
-        Some(s) => NaiveDate::parse_from_str(s, "%Y-%m-%d")
-            .ok()
-            .map(DuePeriod::Before),
-        None => None,
+    let date_filters = match due.as_deref() {
+        Some("today") => vec![DateFilter { prefix: "due".into(), op: DateOp::Today }],
+        Some("this-week") => vec![DateFilter { prefix: "due".into(), op: DateOp::ThisWeek }],
+        Some("overdue") => vec![DateFilter { prefix: "due".into(), op: DateOp::Overdue }],
+        Some(_) => return Err("specific dates not supported via --due; use a period name".into()),
+        None => vec![],
     };
 
     let opts = FilterOptions {
         tags_and, tags_or, tags_not,
-        due_period,
+        date_filters,
         show_done: true,
         only_done: false,
         sort_by: SortMode::Default,

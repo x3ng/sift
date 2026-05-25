@@ -3,22 +3,33 @@ use chrono::{Datelike, Local, NaiveDate, NaiveDateTime};
 use std::collections::HashSet;
 use uuid::Uuid;
 
+#[derive(Debug, Clone)]
+pub struct DateFilter {
+    pub prefix: String,  // tag prefix or "*" for any
+    pub op: DateOp,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum DateOp {
+    Today,
+    Yesterday,
+    Tomorrow,
+    ThisWeek,
+    LastWeek,
+    NextWeek,
+    ThisMonth,
+    LastMonth,
+    Overdue,
+}
+
 pub struct FilterOptions {
     pub tags_and: Vec<String>,
     pub tags_or: Vec<String>,
     pub tags_not: Vec<String>,
-    pub due_period: Option<DuePeriod>,
+    pub date_filters: Vec<DateFilter>,
     pub show_done: bool,
     pub only_done: bool,
     pub sort_by: SortMode,
-}
-
-pub enum DuePeriod {
-    Today,
-    Tomorrow,
-    ThisWeek,
-    Overdue,
-    Before(NaiveDate),
 }
 
 pub enum SortMode {
@@ -73,26 +84,73 @@ impl FilterOptions {
             });
         }
 
-        // Due period filter
-        if let Some(period) = &self.due_period {
+        // Date filters
+        if !self.date_filters.is_empty() {
             let today = Local::now().date_naive();
             ids.retain(|id| {
-                let due = index.due_times.get(id).map(|dt| dt.date());
-                match period {
-                    DuePeriod::Today => due == Some(today),
-                    DuePeriod::Tomorrow => due == Some(today + chrono::Duration::days(1)),
-                    DuePeriod::ThisWeek => {
-                        if let Some(d) = due {
-                            let days_to_end = 7 - today.weekday().num_days_from_monday() as i64;
-                            let week_end = today + chrono::Duration::days(days_to_end);
-                            d >= today && d <= week_end
-                        } else {
-                            false
+                let Some(entry) = index.entries.get(id) else { return false; };
+
+                // For each date filter, check if any matching tag satisfies the period
+                self.date_filters.iter().all(|df| {
+                    let match_date = |tag: &str, prefix: &str| -> Option<NaiveDate> {
+                        tag.strip_prefix(&format!("{prefix}/"))
+                            .and_then(|s| NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M")
+                                .or_else(|_| NaiveDate::parse_from_str(s, "%Y-%m-%d")
+                                    .map(|d| d.and_hms_opt(0, 0, 0).unwrap()))
+                                .ok())
+                            .map(|dt| dt.date())
+                    };
+
+                    let matches_period = |d: NaiveDate| match df.op {
+                        DateOp::Today => d == today,
+                        DateOp::Yesterday => d == today - chrono::Duration::days(1),
+                        DateOp::Tomorrow => d == today + chrono::Duration::days(1),
+                        DateOp::ThisWeek => {
+                            let wday = today.weekday().num_days_from_monday() as i64;
+                            let week_start = today - chrono::Duration::days(wday);
+                            let week_end = week_start + chrono::Duration::days(6);
+                            d >= week_start && d <= week_end
                         }
+                        DateOp::LastWeek => {
+                            let wday = today.weekday().num_days_from_monday() as i64;
+                            let this_monday = today - chrono::Duration::days(wday);
+                            let last_monday = this_monday - chrono::Duration::days(7);
+                            let last_sunday = this_monday - chrono::Duration::days(1);
+                            d >= last_monday && d <= last_sunday
+                        }
+                        DateOp::NextWeek => {
+                            let wday = today.weekday().num_days_from_monday() as i64;
+                            let this_monday = today - chrono::Duration::days(wday);
+                            let next_monday = this_monday + chrono::Duration::days(7);
+                            let next_sunday = next_monday + chrono::Duration::days(6);
+                            d >= next_monday && d <= next_sunday
+                        }
+                        DateOp::ThisMonth => {
+                            d.year() == today.year() && d.month() == today.month()
+                        }
+                        DateOp::LastMonth => {
+                            let prev = if today.month() == 1 {
+                                chrono::NaiveDate::from_ymd_opt(today.year() - 1, 12, 1).unwrap()
+                            } else {
+                                chrono::NaiveDate::from_ymd_opt(today.year(), today.month() - 1, 1).unwrap()
+                            };
+                            d.year() == prev.year() && d.month() == prev.month()
+                        }
+                        DateOp::Overdue => d < today,
+                    };
+
+                    if df.prefix == "*" {
+                        // Match any tag with a date value
+                        entry.tags.iter().any(|t| {
+                            // Try to extract a date from any tag containing '/'
+                            t.split('/').nth(0).and_then(|_| match_date(t, t.split('/').next().unwrap())).is_some_and(|date| matches_period(date))
+                        })
+                    } else {
+                        entry.tags.iter().any(|t| {
+                            match_date(t, &df.prefix).is_some_and(|date| matches_period(date))
+                        })
                     }
-                    DuePeriod::Overdue => due.is_some_and(|d| d < today),
-                    DuePeriod::Before(date) => due.is_some_and(|d| d <= *date),
-                }
+                })
             });
         }
 
@@ -201,7 +259,7 @@ mod tests {
             tags_and: vec!["urgent".into(), "work".into()],
             tags_or: vec![],
             tags_not: vec![],
-            due_period: None,
+            date_filters: vec![],
             show_done: true,
             only_done: false,
             sort_by: SortMode::Default,
@@ -217,7 +275,7 @@ mod tests {
             tags_and: vec![],
             tags_or: vec![],
             tags_not: vec![],
-            due_period: None,
+            date_filters: vec![],
             show_done: false,
             only_done: false,
             sort_by: SortMode::Default,

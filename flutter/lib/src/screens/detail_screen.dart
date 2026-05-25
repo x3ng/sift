@@ -229,7 +229,29 @@ class _DetailScreenState extends State<DetailScreen> {
 
       const SizedBox(height: 4),
 
-      if (_editingBody)
+      if (_entry.body.type == 'file')
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: cs.outlineVariant),
+            color: cs.surfaceContainerHighest.withAlpha(40),
+          ),
+          child: Row(children: [
+            Icon(Icons.insert_drive_file_outlined, size: 24, color: cs.primary),
+            const SizedBox(width: 12),
+            Expanded(child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(_entry.body.path?.split('/').last ?? 'File',
+                    style: const TextStyle(fontWeight: FontWeight.w500)),
+                Text(_entry.body.path ?? '', style: TextStyle(fontSize: 12, color: cs.outline)),
+              ],
+            )),
+          ]),
+        )
+      else if (_editingBody)
         TextField(
           controller: _bodyCtrl,
           maxLines: null,

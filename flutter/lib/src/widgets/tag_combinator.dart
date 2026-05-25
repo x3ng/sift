@@ -332,26 +332,30 @@ class TagCombinatorState extends State<TagCombinator> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Column(mainAxisSize: MainAxisSize.min, children: [
-      // Input row
-      Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      Container(
+        margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHighest.withAlpha(60),
+          borderRadius: BorderRadius.circular(6),
+        ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            Expanded(child: SizedBox(height: 40, child: TextField(
+            Expanded(child: SizedBox(height: 44, child: TextField(
               controller: _ctrl, focusNode: _focus,
+              style: const TextStyle(fontSize: 14),
               decoration: InputDecoration(
                 hintText: widget.hint ?? (_isSearch
-                    ? 'Search or filter...  #tag  done:this-week'
+                    ? 'Filter...  #tag  done:week'
                     : 'Add tag...  done:today  work/rtd'),
-                prefixIcon: Icon(_isSearch ? Icons.search : Icons.label_outline, size: 18),
+                hintStyle: TextStyle(fontSize: 14, color: cs.outline.withAlpha(150)),
+                prefixIcon: Icon(_isSearch ? Icons.search : Icons.label_outline, size: 20, color: cs.outline),
                 suffixIcon: _hasActive
-                    ? IconButton(icon: const Icon(Icons.clear, size: 16), onPressed: _clearAll)
+                    ? IconButton(icon: Icon(Icons.close, size: 16, color: cs.outline), onPressed: _clearAll)
                     : null,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(20)),
+                border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                filled: true,
-                fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withAlpha(80),
               ),
               onSubmitted: _onSubmit,
               onChanged: (_) => setState(() => _showSuggestions = true),
@@ -359,48 +363,53 @@ class TagCombinatorState extends State<TagCombinator> {
             if (widget.trailing != null) widget.trailing!,
           ]),
 
-          // Active chips
           if (_hasActive)
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Wrap(spacing: 4, runSpacing: 2, children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              child: Wrap(spacing: 4, runSpacing: 4, children: [
                 for (final t in _tags) InputChip(
-                  label: Text(_isSearch ? '#$t' : t, style: const TextStyle(fontSize: 12)),
+                  label: Text(_isSearch ? '#$t' : t, style: const TextStyle(fontSize: 11)),
                   onDeleted: () => _removeTag(t),
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  visualDensity: VisualDensity.compact, selected: true,
+                  visualDensity: VisualDensity.compact,
+                  selected: true,
+                  selectedColor: cs.primaryContainer.withAlpha(120),
+                  side: BorderSide.none,
                 ),
                 for (final t in _tagsOr) InputChip(
-                  label: Text('#$t', style: const TextStyle(fontSize: 12)),
+                  label: Text('#$t', style: const TextStyle(fontSize: 11)),
                   onDeleted: () => setState(() { _tagsOr.remove(t); _emit(); }),
-                  backgroundColor: Theme.of(context).colorScheme.tertiaryContainer.withAlpha(100),
+                  backgroundColor: cs.tertiaryContainer.withAlpha(80),
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  visualDensity: VisualDensity.compact, selected: true,
+                  visualDensity: VisualDensity.compact,
+                  selected: true,
+                  selectedColor: cs.tertiaryContainer,
+                  side: BorderSide.none,
                 ),
                 if (_isSearch) ...[
                   for (final t in _tagsNot) InputChip(
-                    label: Text('-#$t', style: const TextStyle(fontSize: 12, color: Colors.red)),
+                    label: Text('-#$t', style: TextStyle(fontSize: 11, color: cs.error)),
                     onDeleted: () => _removeNot(t),
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    visualDensity: VisualDensity.compact, selected: true,
+                    visualDensity: VisualDensity.compact,
+                    side: BorderSide.none,
                   ),
                   if (_fulltext != null) InputChip(
-                    label: Text('"$_fulltext"', style: const TextStyle(fontSize: 12)),
+                    label: Text('"$_fulltext"', style: const TextStyle(fontSize: 11)),
                     onDeleted: () => _clearFulltext(),
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    visualDensity: VisualDensity.compact, selected: true,
+                    visualDensity: VisualDensity.compact,
+                    side: BorderSide.none,
                   ),
                 ],
               ]),
             ),
-          ]),
-        ),
+        ]),
+      ),
 
-      // Suggestions dropdown
       if (_showSuggestions && _focus.hasFocus)
         ..._buildSuggestions(),
-
-      const Divider(height: 1),
     ]);
   }
 }

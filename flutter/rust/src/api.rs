@@ -187,7 +187,15 @@ impl SiftCoreWrapper {
     // ── mutating ───────────────────────────────────────────────
 
     pub fn add(&mut self, name: String, body: FrbBody, tags: Vec<String>) -> Result<FrbEntry, String> {
-        self.inner.add(name, body.into(), tags).map(FrbEntry::from)
+        let b: Body = match body {
+            FrbBody::File { ref path } => {
+                let managed = self.inner.store.import_file(std::path::Path::new(path))
+                    .map_err(|e| e.to_string())?;
+                Body::File { path: managed }
+            }
+            other => other.into(),
+        };
+        self.inner.add(name, b, tags).map(FrbEntry::from)
     }
 
     pub fn done(&mut self, id: String) -> Result<bool, String> {

@@ -1,10 +1,9 @@
 use crate::config::Config;
-use crate::engine::combinator::{parse_query, ParsedQuery};
-use crate::engine::filter::{DuePeriod, FilterOptions, SortMode};
+use crate::engine::combinator::{self, parse_query, ParsedQuery};
+use crate::engine::filter::{DateFilter, DateOp as FilterDateOp, FilterOptions, SortMode};
 use crate::engine::index::Index;
 use crate::entry::{Body, Entry};
 use crate::io::store::Store;
-use chrono::NaiveDate;
 use std::path::PathBuf;
 
 pub struct SiftCore {
@@ -42,14 +41,21 @@ impl SiftCore {
 
     pub fn list(&self, tags_and: Vec<String>, tags_or: Vec<String>, tags_not: Vec<String>,
                 due: Option<String>, show_done: bool, sort: String) -> Result<Vec<Entry>, String> {
-        let due_period = parse_due(due);
+        let date_filters = match due.as_deref() {
+            Some("today") => vec![DateFilter { prefix: "due".into(), op: FilterDateOp::Today }],
+            Some("tomorrow") => vec![DateFilter { prefix: "due".into(), op: FilterDateOp::Tomorrow }],
+            Some("this-week") => vec![DateFilter { prefix: "due".into(), op: FilterDateOp::ThisWeek }],
+            Some("overdue") => vec![DateFilter { prefix: "due".into(), op: FilterDateOp::Overdue }],
+            Some(_) => return Err("specific dates not supported via --due; use a period name".into()),
+            None => vec![],
+        };
         let sort_mode = match sort.as_str() {
             "created" => SortMode::Created,
             "due" => SortMode::Due,
             _ => SortMode::Default,
         };
         let opts = FilterOptions {
-            tags_and, tags_or, tags_not, due_period,
+            tags_and, tags_or, tags_not, date_filters,
             show_done, only_done: false,
             sort_by: sort_mode,
         };
@@ -101,11 +107,26 @@ impl SiftCore {
 
     /// Apply an already-parsed (and view-resolved) query to the index.
     fn apply_parsed(&self, pq: &ParsedQuery, show_done: bool) -> Result<Vec<Entry>, String> {
+        let date_filters: Vec<DateFilter> = pq.dates.iter().map(|dc| {
+            let op = match dc.op {
+                combinator::DateOp::Today => FilterDateOp::Today,
+                combinator::DateOp::Yesterday => FilterDateOp::Yesterday,
+                combinator::DateOp::Tomorrow => FilterDateOp::Tomorrow,
+                combinator::DateOp::ThisWeek => FilterDateOp::ThisWeek,
+                combinator::DateOp::LastWeek => FilterDateOp::LastWeek,
+                combinator::DateOp::NextWeek => FilterDateOp::NextWeek,
+                combinator::DateOp::ThisMonth => FilterDateOp::ThisMonth,
+                combinator::DateOp::LastMonth => FilterDateOp::LastMonth,
+                combinator::DateOp::Overdue => FilterDateOp::Overdue,
+            };
+            DateFilter { prefix: dc.prefix.clone(), op }
+        }).collect();
+
         let opts = FilterOptions {
             tags_and: pq.tags_and.clone(),
             tags_or: pq.tags_or.clone(),
             tags_not: pq.tags_not.clone(),
-            due_period: None,
+            date_filters,
             show_done,
             only_done: false,
             sort_by: SortMode::Default,
@@ -358,20 +379,6 @@ pub struct StatsData {
     pub active: usize,
     pub done: usize,
     pub unique_tags: usize,
-}
-
-fn parse_due(due: Option<String>) -> Option<DuePeriod> {
-    match due.as_deref() {
-        Some("today") => Some(DuePeriod::Today),
-        Some("tomorrow") => Some(DuePeriod::Tomorrow),
-        Some("this-week") => Some(DuePeriod::ThisWeek),
-        Some("overdue") => Some(DuePeriod::Overdue),
-        Some(s) => NaiveDate::parse_from_str(s, "%Y-%m-%d")
-            .or_else(|_| NaiveDate::parse_from_str(s, "%Y.%m.%d"))
-            .ok()
-            .map(DuePeriod::Before),
-        None => None,
-    }
 }
 
 fn resolve_uuid(index: &Index, prefix: &str) -> Result<uuid::Uuid, String> {

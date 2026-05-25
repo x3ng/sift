@@ -1,7 +1,6 @@
 use crate::config::Config;
-use crate::engine::filter::{self, DuePeriod, FilterOptions, SortMode};
+use crate::engine::filter::{self, DateFilter, DateOp, FilterOptions, SortMode};
 use crate::engine::index::Index;
-use chrono::NaiveDate;
 use comfy_table::Table;
 use serde_json;
 
@@ -16,7 +15,14 @@ pub fn run(
     sort: String,
     format: String,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let due_period = parse_due(due);
+    let date_filters = match due.as_deref() {
+        Some("today") => vec![DateFilter { prefix: "due".into(), op: DateOp::Today }],
+        Some("tomorrow") => vec![DateFilter { prefix: "due".into(), op: DateOp::Tomorrow }],
+        Some("this-week") => vec![DateFilter { prefix: "due".into(), op: DateOp::ThisWeek }],
+        Some("overdue") => vec![DateFilter { prefix: "due".into(), op: DateOp::Overdue }],
+        Some(_) => return Err("specific dates not supported via --due; use a period name".into()),
+        None => vec![],
+    };
     let sort_mode = match sort.as_str() {
         "created" => SortMode::Created,
         "due" => SortMode::Due,
@@ -26,7 +32,7 @@ pub fn run(
         tags_and,
         tags_or,
         tags_not,
-        due_period,
+        date_filters,
         show_done: true,   // show all — done is just a tag
         only_done: false,
         sort_by: sort_mode,
@@ -75,18 +81,4 @@ pub fn run(
         }
     }
     Ok(())
-}
-
-fn parse_due(due: Option<String>) -> Option<DuePeriod> {
-    match due.as_deref() {
-        Some("today") => Some(DuePeriod::Today),
-        Some("tomorrow") => Some(DuePeriod::Tomorrow),
-        Some("this-week") => Some(DuePeriod::ThisWeek),
-        Some("overdue") => Some(DuePeriod::Overdue),
-        Some(s) => NaiveDate::parse_from_str(s, "%Y-%m-%d")
-            .or_else(|_| NaiveDate::parse_from_str(s, "%Y.%m.%d"))
-            .ok()
-            .map(DuePeriod::Before),
-        None => None,
-    }
 }

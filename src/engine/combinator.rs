@@ -141,7 +141,7 @@ fn parse_date_clause(token: &str) -> Option<(String, Vec<DateOp>)> {
         return None;
     }
     let prefix = token[..colon].to_string();
-    if !prefix.chars().all(|c| c.is_ascii_lowercase() || c == '-') {
+    if prefix != "*" && !prefix.chars().all(|c| c.is_ascii_lowercase() || c == '-') {
         return None;
     }
     let periods = &token[colon + 1..];
