@@ -100,6 +100,7 @@ src/
 ├── io/
 │   └── store.rs      # JSONL read/write — pure I/O, no logic
 ├── engine/
+│   ├── types.rs      # Shared: DateOp enum, date parsing utils
 │   ├── index.rs      # In-memory tag→ids mapping
 │   ├── filter.rs     # Filter ops on index
 │   └── combinator.rs # Query tokenizer / parser / @view resolver

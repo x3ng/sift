@@ -1,4 +1,5 @@
 use crate::entry::Entry;
+use crate::engine::types::parse_tag_date;
 use chrono::NaiveDateTime;
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
@@ -94,17 +95,7 @@ impl Index {
 }
 
 fn parse_tag_timestamp(tag: &str, prefix: &str) -> Option<NaiveDateTime> {
-    let suffix = tag.strip_prefix(prefix)?;
-    let fmts = ["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"];
-    for fmt in &fmts {
-        if let Ok(dt) = NaiveDateTime::parse_from_str(suffix, fmt) {
-            return Some(dt);
-        }
-    }
-    if let Ok(d) = chrono::NaiveDate::parse_from_str(suffix, "%Y-%m-%d") {
-        return d.and_hms_opt(0, 0, 0);
-    }
-    None
+    parse_tag_date(tag, prefix)
 }
 
 #[cfg(test)]

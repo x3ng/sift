@@ -282,21 +282,6 @@ class NativeService {
     return FrbEntry.fromJson(decoded as Map<String, dynamic>);
   }
 
-  Future<List<FrbEntry>> getViews() async {
-    final qPtr = '#view'.toNativeUtf8();
-    final ptr = _siftListParsed(qPtr, 1);
-    calloc.free(qPtr);
-    return _decodeList(ptr, 'getViews').map((e) => FrbEntry.fromJson(e)).toList();
-  }
-
-  Future<void> saveView(String name, String expression) async {
-    await add(name, body: FrbBody.text(expression), tags: ['view']);
-  }
-
-  Future<void> deleteView(String id) async {
-    await delete(id);
-  }
-
   Future<FrbStatsData> stats() async {
     final ptr = _siftStats();
     final json = ptr.toDartString();

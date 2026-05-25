@@ -142,7 +142,7 @@ class _ListScreenState extends State<ListScreen> {
     ));
     if (name == null || name.isEmpty) return;
     try {
-      await siftService.saveView(name, q);
+      await siftService.add(name, body: FrbBody.text(q), tags: ['view']);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('View "$name" saved'), duration: const Duration(seconds: 1)));
         widget.onFilterApplied?.call();

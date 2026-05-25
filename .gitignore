@@ -11,3 +11,4 @@ flutter/build/
 .superpowers/
 *.swp
 *~
+tmp/

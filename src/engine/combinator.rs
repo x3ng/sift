@@ -11,6 +11,8 @@
 //!
 //! Clauses AND together. Commas OR within a clause.
 
+use crate::engine::types::DateOp;
+
 /// Structured result of parsing a combinator query string.
 #[derive(Debug, Clone, Default)]
 pub struct ParsedQuery {
@@ -42,19 +44,6 @@ impl ParsedQuery {
 pub struct DateClause {
     pub prefix: String,
     pub op: DateOp,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum DateOp {
-    Today,
-    Yesterday,
-    Tomorrow,
-    ThisWeek,
-    LastWeek,
-    NextWeek,
-    ThisMonth,
-    LastMonth,
-    Overdue,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

@@ -51,10 +51,19 @@ fn default_date_fmt() -> String {
 }
 
 fn default_data_dir() -> PathBuf {
-    ProjectDirs::from("", "", "sift")
-        .expect("could not determine project directories")
-        .data_dir()
-        .to_path_buf()
+    if let Some(proj) = ProjectDirs::from("", "", "sift") {
+        proj.data_dir().to_path_buf()
+    } else {
+        // Fallback when XDG/desktop dirs can't be determined
+        dirs_fallback()
+    }
+}
+
+fn dirs_fallback() -> PathBuf {
+    std::env::var("HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PathBuf::from("."))
+        .join(".local/share/sift")
 }
 
 fn default_date_prefixes() -> HashMap<String, String> {
@@ -89,11 +98,9 @@ impl Config {
     }
 
     pub fn default_with_paths() -> Self {
-        let proj =
-            ProjectDirs::from("", "", "sift").expect("could not determine project directories");
         Self {
             editor: default_editor(),
-            data_dir: proj.data_dir().to_path_buf(),
+            data_dir: default_data_dir(),
             tags: TagsConfig::default(),
             display: DisplayConfig::default(),
         }
@@ -119,6 +126,9 @@ impl Config {
 }
 
 fn config_path() -> PathBuf {
-    let dirs = ProjectDirs::from("", "", "sift").expect("could not determine project directories");
-    dirs.config_dir().join("config.toml")
+    if let Some(proj) = ProjectDirs::from("", "", "sift") {
+        proj.config_dir().join("config.toml")
+    } else {
+        dirs_fallback().join("config.toml")
+    }
 }

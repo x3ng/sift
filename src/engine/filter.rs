@@ -1,5 +1,6 @@
 use crate::engine::index::Index;
-use chrono::{Datelike, Local, NaiveDate, NaiveDateTime};
+use crate::engine::types::{DateOp, parse_date_value, parse_tag_date};
+use chrono::{Datelike, Local, NaiveDate};
 use std::collections::HashSet;
 use uuid::Uuid;
 
@@ -7,19 +8,6 @@ use uuid::Uuid;
 pub struct DateFilter {
     pub prefix: String,  // tag prefix or "*" for any
     pub op: DateOp,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum DateOp {
-    Today,
-    Yesterday,
-    Tomorrow,
-    ThisWeek,
-    LastWeek,
-    NextWeek,
-    ThisMonth,
-    LastMonth,
-    Overdue,
 }
 
 pub struct FilterOptions {
@@ -94,12 +82,7 @@ impl FilterOptions {
                 // For each date filter, check if any matching tag satisfies the period
                 self.date_filters.iter().all(|df| {
                     let match_date = |tag: &str, prefix: &str| -> Option<NaiveDate> {
-                        tag.strip_prefix(&format!("{prefix}/"))
-                            .and_then(|s| NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M")
-                                .or_else(|_| NaiveDate::parse_from_str(s, "%Y-%m-%d")
-                                    .map(|d| d.and_hms_opt(0, 0, 0).unwrap()))
-                                .ok())
-                            .map(|dt| dt.date())
+                        parse_tag_date(tag, &format!("{prefix}/")).map(|dt| dt.date())
                     };
 
                     let matches_period = |d: NaiveDate| match df.op {
@@ -143,17 +126,12 @@ impl FilterOptions {
                     if df.prefix == "*" {
                         // Match any tag that has a parseable date after '/'
                         entry.tags.iter().any(|t| {
-                            t.find('/').and_then(|pos| {
-                                let value = &t[pos + 1..];
-                                NaiveDateTime::parse_from_str(value, "%Y-%m-%dT%H:%M")
-                                    .or_else(|_| NaiveDate::parse_from_str(value, "%Y-%m-%d")
-                                        .map(|d| d.and_hms_opt(0, 0, 0).unwrap()))
-                                    .ok()
-                            }).is_some_and(|dt| matches_period(dt.date()))
+                            t.find('/').and_then(|pos| parse_date_value(&t[pos + 1..]))
+                                .is_some_and(|dt| matches_period(dt.date()))
                         })
                     } else {
                         entry.tags.iter().any(|t| {
-                            match_date(t, &df.prefix).is_some_and(|date| matches_period(date))
+                            match_date(t, &df.prefix).is_some_and(&matches_period)
                         })
                     }
                 })
@@ -190,10 +168,7 @@ pub fn sort_ids(ids: &mut [Uuid], index: &Index, mode: &SortMode, priority_order
         SortMode::Modified => {
             ids.sort_by_key(|id| {
                 index.entries.get(id).and_then(|e| {
-                    e.tags.iter().find_map(|t| {
-                        t.strip_prefix("modified/")
-                            .and_then(|s| NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M").ok())
-                    })
+                    e.tags.iter().find_map(|t| parse_tag_date(t, "modified/"))
                 })
             });
         }

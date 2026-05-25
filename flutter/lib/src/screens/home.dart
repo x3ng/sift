@@ -14,23 +14,8 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   String? _tagFilter;
-  String? _activeViewName;
   var _reloadKey = 0;
   bool _railOpen = true;
-  List<FrbEntry> _views = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _loadViews();
-  }
-
-  Future<void> _loadViews() async {
-    try {
-      final views = await siftService.getViews();
-      if (mounted) setState(() => _views = views);
-    } catch (_) {}
-  }
 
   void _openAdd() {
     Navigator.of(context).push(MaterialPageRoute(
@@ -38,7 +23,7 @@ class _HomeScreenState extends State<HomeScreen> {
         appBar: AppBar(title: const Text('New Entry')),
         body: AddScreen(onAdded: () => Navigator.pop(context)),
       ),
-    )).then((_) { setState(() => _reloadKey++); _loadViews(); });
+    )).then((_) => setState(() => _reloadKey++));
   }
 
   Future<void> _showExportDialog() async {
@@ -91,16 +76,6 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(height: 8),
         _railNav(Icons.inbox_rounded, 'All', 0),
         _railNav(Icons.tag_rounded, 'Tags', 1),
-        if (_views.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          if (_railOpen)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Row(children: [Text('Views', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.outline.withAlpha(120)))],),
-            ),
-          for (final v in _views)
-            _viewTab(v),
-        ],
         const Spacer(),
         _railAction(Icons.add_circle_outline_rounded, 'Add', _openAdd),
         _railAction(Icons.upload_rounded, 'Export', _showExportDialog),
@@ -117,7 +92,7 @@ class _HomeScreenState extends State<HomeScreen> {
       message: _railOpen ? '' : label,
       waitDuration: const Duration(milliseconds: 400),
       child: InkWell(
-        onTap: () => setState(() { _selectedIndex = index; _activeViewName = null; }),
+        onTap: () => setState(() => _selectedIndex = index),
         borderRadius: BorderRadius.circular(6),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 12),
@@ -142,38 +117,6 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Row(children: [
             Icon(icon, size: 20, color: cs.onSurface.withAlpha(100)),
             if (_railOpen) ...[const SizedBox(width: 10), Text(label, style: TextStyle(fontSize: 13, color: cs.onSurface.withAlpha(160)))],
-          ]),
-        ),
-      ),
-    );
-  }
-
-  Widget _viewTab(FrbEntry view) {
-    final cs = Theme.of(context).colorScheme;
-    return Tooltip(
-      message: _railOpen ? '' : view.name,
-      waitDuration: const Duration(milliseconds: 400),
-      child: InkWell(
-        onTap: () {
-          setState(() { _selectedIndex = -1; _activeViewName = view.name; _reloadKey++; });
-          _tagFilter = view.body.text;
-        },
-        onLongPress: () async {
-          final ok = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
-            title: Text('Delete view "${view.name}"?'),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-              TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete', style: TextStyle(color: Colors.red))),
-            ],
-          ));
-          if (ok == true) { await siftService.deleteView(view.id); _loadViews(); }
-        },
-        borderRadius: BorderRadius.circular(6),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
-          child: Row(children: [
-            Icon(Icons.bookmark_rounded, size: 18, color: cs.primary.withAlpha(180)),
-            if (_railOpen) ...[const SizedBox(width: 10), Expanded(child: Text(view.name, style: const TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis))],
           ]),
         ),
       ),
@@ -231,10 +174,8 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     // Narrow: hamburger → drawer
-    final title = _activeViewName ?? (_selectedIndex == 0 ? 'All' : 'Tags');
-    final icon = _activeViewName != null ? Icons.bookmark_rounded
-        : _selectedIndex == 0 ? Icons.inbox_rounded
-        : Icons.tag_rounded;
+    final title = _selectedIndex == 0 ? 'All' : 'Tags';
+    final icon = _selectedIndex == 0 ? Icons.inbox_rounded : Icons.tag_rounded;
 
     return Scaffold(
       appBar: AppBar(
@@ -269,7 +210,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return NavigationDrawer(
       selectedIndex: _selectedIndex,
       onDestinationSelected: (i) {
-        setState(() { _selectedIndex = i; _activeViewName = null; });
+        setState(() => _selectedIndex = i);
         Navigator.pop(context);
       },
       children: [
@@ -280,14 +221,6 @@ class _HomeScreenState extends State<HomeScreen> {
         const Divider(),
         const NavigationDrawerDestination(icon: Icon(Icons.inbox_outlined), selectedIcon: Icon(Icons.inbox_rounded), label: Text('All')),
         const NavigationDrawerDestination(icon: Icon(Icons.tag_outlined), selectedIcon: Icon(Icons.tag_rounded), label: Text('Tags')),
-        if (_views.isNotEmpty) ...[
-          const Padding(
-            padding: EdgeInsets.fromLTRB(28, 16, 16, 4),
-            child: Text('Views', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
-          ),
-          for (final v in _views)
-            _drawerViewItem(v),
-        ],
         const SizedBox(height: 12),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -301,36 +234,11 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _drawerViewItem(FrbEntry view) {
-    return ListTile(
-      leading: const Icon(Icons.bookmark_rounded, size: 20),
-      title: Text(view.name, style: const TextStyle(fontSize: 14)),
-      onTap: () {
-        setState(() { _selectedIndex = -1; _activeViewName = view.name; _reloadKey++; });
-        _tagFilter = view.body.text;
-        Navigator.pop(context);
-      },
-      onLongPress: () async {
-        Navigator.pop(context);
-        final ok = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
-          title: Text('Delete view "${view.name}"?'),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-            TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete', style: TextStyle(color: Colors.red))),
-          ],
-        ));
-        if (ok == true) { await siftService.deleteView(view.id); _loadViews(); }
-      },
-    );
-  }
-
   Widget _buildPage() {
     switch (_selectedIndex) {
-      case -1: // View tab
       case 0:
         return ListScreen(key: ValueKey(_reloadKey), tagFilter: _tagFilter, onFilterApplied: () {
           setState(() { _tagFilter = null; _selectedIndex = 0; });
-          _loadViews();
         });
       case 1:
         return TagsScreen(onTagTap: (tag) { _tagFilter = tag; _selectedIndex = 0; setState(() => _reloadKey++); });

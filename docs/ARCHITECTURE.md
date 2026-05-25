@@ -58,6 +58,7 @@ src/
 ├── io/
 │   └── store.rs      # JSONL read/write/append, file import/delete
 ├── engine/
+│   ├── types.rs      # Shared: DateOp enum, date parsing utils
 │   ├── index.rs      # In-memory: tag→ids, times, counts
 │   ├── filter.rs     # Tag ops (and/or/not/*), date filters
 │   └── combinator.rs # Query tokenizer/parser, @view resolver
@@ -132,7 +133,7 @@ See [COMBINATOR.md](COMBINATOR.md) for the full grammar and semantics.
 
 ```bash
 make build        # Rust core
-make test         # Rust tests (27 tests)
+make test         # Rust tests (28 tests)
 make check        # build + test
 make gui          # Flutter debug build
 make gui-run      # Build + launch Flutter

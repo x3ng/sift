@@ -5,6 +5,7 @@
 
 use sift::api::SiftCore;
 use sift::engine::combinator;
+use sift::engine::types::DateOp;
 use sift::entry::{Body, Entry};
 use serde::{Deserialize, Serialize};
 
@@ -128,18 +129,18 @@ impl From<FrbBody> for Body {
     }
 }
 
-impl From<combinator::DateOp> for FrbDateOp {
-    fn from(op: combinator::DateOp) -> Self {
+impl From<DateOp> for FrbDateOp {
+    fn from(op: DateOp) -> Self {
         match op {
-            combinator::DateOp::Today => FrbDateOp::Today,
-            combinator::DateOp::Yesterday => FrbDateOp::Yesterday,
-            combinator::DateOp::Tomorrow => FrbDateOp::Tomorrow,
-            combinator::DateOp::ThisWeek => FrbDateOp::ThisWeek,
-            combinator::DateOp::LastWeek => FrbDateOp::LastWeek,
-            combinator::DateOp::NextWeek => FrbDateOp::NextWeek,
-            combinator::DateOp::ThisMonth => FrbDateOp::ThisMonth,
-            combinator::DateOp::LastMonth => FrbDateOp::LastMonth,
-            combinator::DateOp::Overdue => FrbDateOp::Overdue,
+            DateOp::Today => FrbDateOp::Today,
+            DateOp::Yesterday => FrbDateOp::Yesterday,
+            DateOp::Tomorrow => FrbDateOp::Tomorrow,
+            DateOp::ThisWeek => FrbDateOp::ThisWeek,
+            DateOp::LastWeek => FrbDateOp::LastWeek,
+            DateOp::NextWeek => FrbDateOp::NextWeek,
+            DateOp::ThisMonth => FrbDateOp::ThisMonth,
+            DateOp::LastMonth => FrbDateOp::LastMonth,
+            DateOp::Overdue => FrbDateOp::Overdue,
         }
     }
 }

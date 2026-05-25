@@ -1,7 +1,8 @@
 use crate::config::Config;
 use crate::engine::combinator::{self, parse_query, ParsedQuery};
-use crate::engine::filter::{DateFilter, DateOp as FilterDateOp, FilterOptions, SortMode};
+use crate::engine::filter::{DateFilter, FilterOptions, SortMode};
 use crate::engine::index::Index;
+use crate::engine::types::DateOp;
 use crate::entry::{Body, Entry};
 use crate::io::store::Store;
 use std::path::PathBuf;
@@ -42,10 +43,10 @@ impl SiftCore {
     pub fn list(&self, tags_and: Vec<String>, tags_or: Vec<String>, tags_not: Vec<String>,
                 due: Option<String>, show_done: bool, sort: String) -> Result<Vec<Entry>, String> {
         let date_filters = match due.as_deref() {
-            Some("today") => vec![DateFilter { prefix: "due".into(), op: FilterDateOp::Today }],
-            Some("tomorrow") => vec![DateFilter { prefix: "due".into(), op: FilterDateOp::Tomorrow }],
-            Some("this-week") => vec![DateFilter { prefix: "due".into(), op: FilterDateOp::ThisWeek }],
-            Some("overdue") => vec![DateFilter { prefix: "due".into(), op: FilterDateOp::Overdue }],
+            Some("today") => vec![DateFilter { prefix: "due".into(), op: DateOp::Today }],
+            Some("tomorrow") => vec![DateFilter { prefix: "due".into(), op: DateOp::Tomorrow }],
+            Some("this-week") => vec![DateFilter { prefix: "due".into(), op: DateOp::ThisWeek }],
+            Some("overdue") => vec![DateFilter { prefix: "due".into(), op: DateOp::Overdue }],
             Some(_) => return Err("specific dates not supported via --due; use a period name".into()),
             None => vec![],
         };
@@ -141,18 +142,7 @@ impl SiftCore {
 
     fn apply_one(&self, pq: &ParsedQuery, show_done: bool, sort_mode: &SortMode) -> Result<Vec<Entry>, String> {
         let date_filters: Vec<DateFilter> = pq.dates.iter().map(|dc| {
-            let op = match dc.op {
-                combinator::DateOp::Today => FilterDateOp::Today,
-                combinator::DateOp::Yesterday => FilterDateOp::Yesterday,
-                combinator::DateOp::Tomorrow => FilterDateOp::Tomorrow,
-                combinator::DateOp::ThisWeek => FilterDateOp::ThisWeek,
-                combinator::DateOp::LastWeek => FilterDateOp::LastWeek,
-                combinator::DateOp::NextWeek => FilterDateOp::NextWeek,
-                combinator::DateOp::ThisMonth => FilterDateOp::ThisMonth,
-                combinator::DateOp::LastMonth => FilterDateOp::LastMonth,
-                combinator::DateOp::Overdue => FilterDateOp::Overdue,
-            };
-            DateFilter { prefix: dc.prefix.clone(), op }
+            DateFilter { prefix: dc.prefix.clone(), op: dc.op }
         }).collect();
 
         let opts = FilterOptions {

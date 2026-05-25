@@ -3,7 +3,7 @@ import '../services/ffi_service.dart';
 import 'tag_chips.dart';
 
 class EntryCard extends StatelessWidget {
-  final dynamic entry;
+  final FrbEntry entry;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final bool selected;
@@ -20,9 +20,9 @@ class EntryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tags = (entry.tags as List).cast<String>();
-    final FrbBody? body = entry.body;
-    final bool isFile = body?.type == 'file';
+    final tags = entry.tags;
+    final FrbBody body = entry.body;
+    final bool isFile = body.type == 'file';
     final bool isDone = tags.any((t) => t.startsWith('done/'));
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -59,7 +59,7 @@ class EntryCard extends StatelessWidget {
                       Row(children: [
                         Expanded(
                           child: Text(
-                            entry.name.toString(),
+                            entry.name,
                             style: TextStyle(
                               fontSize: 14.5,
                               fontWeight: FontWeight.w500,
@@ -79,7 +79,7 @@ class EntryCard extends StatelessWidget {
                         const SizedBox(height: 5),
                         TagChips(tags: tags.where((t) => !t.startsWith('done/')).take(5).toList()),
                       ],
-                      if (body != null && !body.isEmpty) ...[
+                      if (!body.isEmpty) ...[
                         const SizedBox(height: 5),
                         if (isFile)
                           Row(mainAxisSize: MainAxisSize.min, children: [
