@@ -1,17 +1,15 @@
-use crate::io::store::Store;
+use crate::api::SiftCore;
 use std::fs;
 use std::io::Write;
 
-pub fn run(store: &Store, path: &str, format: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let entries = store.read_all()?;
+pub fn run(core: &SiftCore, path: &str, format: &str) -> Result<(), Box<dyn std::error::Error>> {
+    if format == "jsonl" {
+        return core.export_to(path.into()).map_err(|e| e.into());
+    }
+
+    let entries = core.store.read_all()?;
 
     match format {
-        "jsonl" => {
-            let mut f = fs::File::create(path)?;
-            for e in &entries {
-                writeln!(f, "{}", serde_json::to_string(e)?)?;
-            }
-        }
         "json" => {
             let json = serde_json::to_string_pretty(&entries)?;
             fs::write(path, json)?;
@@ -20,10 +18,7 @@ pub fn run(store: &Store, path: &str, format: &str) -> Result<(), Box<dyn std::e
             let mut f = fs::File::create(path)?;
             for e in &entries {
                 let status = if e.is_done() { "x" } else { " " };
-                let tags = e.tags.iter()
-                    .map(|t| format!("#{t}"))
-                    .collect::<Vec<_>>()
-                    .join(" ");
+                let tags = e.tags.iter().map(|t| format!("#{t}")).collect::<Vec<_>>().join(" ");
                 writeln!(f, "- [{status}] {}  {tags}", e.name)?;
                 if let Some(text) = e.body.text() {
                     writeln!(f, "  {text}")?;

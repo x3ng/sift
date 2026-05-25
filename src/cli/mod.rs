@@ -76,7 +76,7 @@ pub enum Command {
         #[arg(long)]
         like: Option<String>,
     },
-    /// Full-text search in headline and body
+    /// Full-text search in name and body
     Search { query: String },
     /// Show statistics
     Stats,
@@ -99,90 +99,67 @@ pub enum Command {
     },
     /// Export entries to a file
     Export {
-        /// Output path
         path: String,
         #[arg(long = "format", default_value = "jsonl")]
         format: String,
     },
     /// Import entries from a file
     Import {
-        /// Input path
         path: String,
         #[arg(long)]
         merge: bool,
     },
     /// Generate shell completion script
     Completion {
-        /// Shell (bash, zsh, fish)
         shell: String,
     },
 }
 
 pub fn run() {
     let cli = Cli::parse();
-
-    use crate::config::Config;
-    use crate::engine::index::Index;
-    use crate::io::store::Store;
-
-    let cfg = Config::load().unwrap_or_else(|e| {
-        eprintln!("warning: could not load config: {e}, using defaults");
-        Config::default_with_paths()
+    let mut core = crate::api::SiftCore::new(None).unwrap_or_else(|e| {
+        eprintln!("error initializing sift: {e}");
+        std::process::exit(1);
     });
-
-    let store = Store::new(cfg.entries_path(), cfg.backup_dir());
-
-    let entries = store.read_all().unwrap_or_else(|e| {
-        eprintln!("error reading entries: {e}");
-        vec![]
-    });
-    let mut index = Index::new();
-    index.rebuild_from(&entries, &cfg.tags.date_prefixes);
 
     let result = match cli.command {
-        Command::Add {
-            name,
-            tag,
-            at,
-            body,
-        } => add::run(&store, &mut index, &cfg, name, tag, at, body),
-        Command::List {
-            tags_and,
-            tags_or,
-            tags_not,
-            due,
-            query,
-            sort,
-            format,
-        } => list::run(
-            &index, &cfg, tags_and, tags_or, tags_not, due, query, sort, format,
-        ),
-        Command::Tag {
-            id_prefix,
-            add,
-            rm,
-            at,
-        } => tag_cmd::run(&store, &mut index, &cfg, id_prefix, add, rm, at),
-        Command::Edit {
-            id_prefix,
-            name,
-            body,
-        } => edit::run(&store, &mut index, &cfg, id_prefix, name, body),
-        Command::Delete { id_prefix } => delete::run(&store, &mut index, &cfg, id_prefix),
-        Command::Show { id_prefix } => show::run(&index, id_prefix),
-        Command::Tags { like } => tags_cmd::run(&index, like),
-        Command::Search { query } => search_cmd::run(&index, query),
-        Command::Batch { tags_and, tags_or, tags_not, due, add_tags, rm_tags, delete } =>
-            batch::run(&store, &mut index, &cfg, tags_and, tags_or, tags_not, due, add_tags, rm_tags, delete),
-        Command::Stats => stats::run(&index),
-        Command::Export { path, format } => export::run(&store, &path, &format),
-        Command::Import { path, merge } => import::run(&store, &mut index, &cfg, &path, merge),
+        Command::Add { name, tag, at, body } => {
+            add::run(&mut core, name, tag, at, body)
+        }
+        Command::List { tags_and, tags_or, tags_not, due, query, sort, format } => {
+            list::run(&core, tags_and, tags_or, tags_not, due, query, sort, format)
+        }
+        Command::Tag { id_prefix, add, rm, at } => {
+            tag_cmd::run(&mut core, id_prefix, add, rm, at)
+        }
+        Command::Edit { id_prefix, name, body } => {
+            edit::run(&mut core, id_prefix, name, body)
+        }
+        Command::Delete { id_prefix } => {
+            delete::run(&mut core, id_prefix)
+        }
+        Command::Show { id_prefix } => {
+            show::run(&core, id_prefix)
+        }
+        Command::Tags { like } => {
+            tags_cmd::run(&core, like)
+        }
+        Command::Search { query } => {
+            search_cmd::run(&core, query)
+        }
+        Command::Batch { tags_and, tags_or, tags_not, due, add_tags, rm_tags, delete } => {
+            batch::run(&mut core, tags_and, tags_or, tags_not, due, add_tags, rm_tags, delete)
+        }
+        Command::Stats => stats::run(&core),
+        Command::Export { path, format } => {
+            export::run(&core, &path, &format)
+        }
+        Command::Import { path, merge } => {
+            import::run(&mut core, &path, merge)
+        }
         Command::Completion { shell } => {
             use clap::CommandFactory;
-            use clap_complete::{
-                generate,
-                shells::{Bash, Fish, Zsh},
-            };
+            use clap_complete::{generate, shells::{Bash, Fish, Zsh}};
             let mut cmd = Cli::command();
             match shell.as_str() {
                 "bash" => generate(Bash, &mut cmd, "sift", &mut std::io::stdout()),

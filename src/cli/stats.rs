@@ -1,21 +1,16 @@
-use crate::engine::index::Index;
+use crate::api::SiftCore;
 
-pub fn run(index: &Index) -> Result<(), Box<dyn std::error::Error>> {
-    let total = index.entries.len();
-    let active = index.entries.values().filter(|e| !e.is_done()).count();
-    let done = total - active;
-    let unique_tags = index.tag_counts.len();
+pub fn run(core: &SiftCore) -> Result<(), Box<dyn std::error::Error>> {
+    let s = core.stats();
+    println!("Total entries:  {}", s.total);
+    println!("Active:         {}", s.active);
+    println!("Done:           {}", s.done);
+    println!("Unique tags:    {}", s.unique_tags);
 
-    println!("Total entries:  {total}");
-    println!("Active:         {active}");
-    println!("Done:           {done}");
-    println!("Unique tags:    {unique_tags}");
-
-    if !index.tag_counts.is_empty() {
+    let tags = core.all_tags();
+    if !tags.is_empty() {
         println!("\nTop tags:");
-        let mut tags = index.all_tags();
-        tags.truncate(10);
-        for (tag, count) in &tags {
+        for (tag, count) in tags.iter().take(10) {
             println!("  {:>5}  #{}", count, tag);
         }
     }

@@ -1,14 +1,7 @@
-use crate::engine::filter::{DateFilter, DateOp, FilterOptions, SortMode};
-use crate::engine::index::Index;
-use crate::io::store::Store;
-use chrono::Local;
-use uuid::Uuid;
+use crate::api::SiftCore;
 
-#[allow(clippy::too_many_arguments)]
 pub fn run(
-    store: &Store,
-    index: &mut Index,
-    cfg: &crate::config::Config,
+    core: &mut SiftCore,
     tags_and: Vec<String>,
     tags_or: Vec<String>,
     tags_not: Vec<String>,
@@ -17,75 +10,21 @@ pub fn run(
     rm_tags: Vec<String>,
     delete: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let date_filters = match due.as_deref() {
-        Some("today") => vec![DateFilter { prefix: "due".into(), op: DateOp::Today }],
-        Some("this-week") => vec![DateFilter { prefix: "due".into(), op: DateOp::ThisWeek }],
-        Some("overdue") => vec![DateFilter { prefix: "due".into(), op: DateOp::Overdue }],
-        Some(_) => return Err("specific dates not supported via --due; use a period name".into()),
-        None => vec![],
-    };
-
-    let opts = FilterOptions {
-        tags_and, tags_or, tags_not,
-        date_filters,
-        show_done: true,
-        only_done: false,
-        sort_by: SortMode::Default,
-    };
-
-    let ids = opts.apply(index);
-    if ids.is_empty() {
+    // Use SiftCore::list for filtering
+    let entries = core.list(tags_and, tags_or, tags_not, due, true, "default".into())?;
+    if entries.is_empty() {
         println!("no entries match the filter");
         return Ok(());
     }
 
+    let prefixes: Vec<String> = entries.iter().map(|e| e.id_prefix()).collect();
+
     if delete {
-        let mut entries = store.read_all()?;
-        let id_set: std::collections::HashSet<Uuid> = ids.iter().copied().collect();
-        entries.retain(|e| !id_set.contains(&e.id));
-        store.write_all(&entries)?;
-        index.rebuild_from(&entries, &cfg.tags.date_prefixes);
-        println!("deleted {} entries", ids.len());
-        return Ok(());
+        let count = core.batch_delete(prefixes)?;
+        println!("deleted {count} entries");
+    } else {
+        let count = core.batch_tag(prefixes, add_tags, rm_tags)?;
+        println!("modified {count} entries");
     }
-
-    // Add/remove tags
-    let mut entries = store.read_all()?;
-    let now = Local::now().format("%Y-%m-%dT%H:%M").to_string();
-    let mut modified = 0;
-
-    for entry in &mut entries {
-        if !ids.contains(&entry.id) { continue; }
-        modified += 1;
-
-        for tag in &add_tags {
-            let clean = tag.trim().trim_start_matches('#');
-            if clean == "done" {
-                // Special: "done" adds timed done/ tag
-                let done_tag = format!("done/{now}");
-                if !entry.tags.contains(&done_tag) {
-                    entry.tags.push(done_tag);
-                }
-            } else if !entry.tags.iter().any(|t| t == clean) {
-                entry.tags.push(clean.to_string());
-            }
-        }
-        for pattern in &rm_tags {
-            if pattern.ends_with('*') {
-                let prefix = pattern.trim_end_matches('*');
-                entry.tags.retain(|t| !t.starts_with(prefix));
-            } else {
-                let clean = pattern.trim().trim_start_matches('#');
-                let clean_str = clean.to_string();
-                entry.tags.retain(|t| t != &clean_str);
-            }
-        }
-        entry.tags.sort();
-        entry.tags.dedup();
-    }
-
-    store.write_all(&entries)?;
-    index.rebuild_from(&entries, &cfg.tags.date_prefixes);
-    println!("modified {modified} entries");
     Ok(())
 }
