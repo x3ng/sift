@@ -69,7 +69,8 @@ class TagCombinatorState extends State<TagCombinator> {
     if (colon <= 0 || colon == s.length - 1) return false;
     final prefix = s.substring(0, colon);
     final period = s.substring(colon + 1);
-    return RegExp(r'^[a-z][a-z-]*$').hasMatch(prefix) && _datePeriods.contains(period);
+    return (prefix == '*' || RegExp(r'^[a-z][a-z-]*$').hasMatch(prefix))
+        && _datePeriods.contains(period);
   }
 
   static const _datePeriods = {
