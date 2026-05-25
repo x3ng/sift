@@ -111,14 +111,17 @@ pub extern "C" fn sift_parse_query(input: *const c_char) -> *mut c_char {
 // ── mutating ──────────────────────────────────────────────────────
 
 #[unsafe(no_mangle)]
-pub extern "C" fn sift_add(headline: *const c_char, body: *const c_char, tags_json: *const c_char) -> *mut c_char {
-    let h = unsafe { CStr::from_ptr(headline).to_string_lossy().to_string() };
-    let b = unsafe { CStr::from_ptr(body).to_string_lossy().to_string() };
+pub extern "C" fn sift_add(name: *const c_char, body_json: *const c_char, tags_json: *const c_char) -> *mut c_char {
+    let n = unsafe { CStr::from_ptr(name).to_string_lossy().to_string() };
+    let body: crate::api::FrbBody = unsafe {
+        let js = CStr::from_ptr(body_json).to_string_lossy();
+        serde_json::from_str(&js).unwrap_or(crate::api::FrbBody::Empty)
+    };
     let tags: Vec<String> = unsafe {
         let js = CStr::from_ptr(tags_json).to_string_lossy();
         serde_json::from_str(&js).unwrap_or_default()
     };
-    match with_state(|w| w.add(h, b, tags)) {
+    match with_state(|w| w.add(n, body, tags)) {
         Ok(entry) => to_c_string(serde_json::to_string(&entry).unwrap_or_default()),
         Err(e) => to_c_string(format!(r#"{{"error":"{}"}}"#, e)),
     }
@@ -134,17 +137,17 @@ pub extern "C" fn sift_delete(id: *const c_char) -> *mut c_char {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn sift_edit(id: *const c_char, headline_json: *const c_char, body_json: *const c_char) -> *mut c_char {
+pub extern "C" fn sift_edit(id: *const c_char, name_json: *const c_char, body_json: *const c_char) -> *mut c_char {
     let id_str = unsafe { CStr::from_ptr(id).to_string_lossy().to_string() };
-    let h: Option<String> = unsafe {
-        let js = CStr::from_ptr(headline_json).to_string_lossy();
+    let n: Option<String> = unsafe {
+        let js = CStr::from_ptr(name_json).to_string_lossy();
         if js == "null" { None } else { serde_json::from_str(&js).unwrap_or(None) }
     };
-    let b: Option<String> = unsafe {
+    let b: Option<crate::api::FrbBody> = unsafe {
         let js = CStr::from_ptr(body_json).to_string_lossy();
-        if js == "null" { None } else { serde_json::from_str(&js).unwrap_or(None) }
+        if js == "null" { None } else { serde_json::from_str(&js).ok() }
     };
-    match with_state(|w| w.edit(id_str, h, b)) {
+    match with_state(|w| w.edit(id_str, n, b)) {
         Ok(v) => to_c_string(format!(r#"{{"ok":{}}}"#, v)),
         Err(e) => to_c_string(format!(r#"{{"error":"{}"}}"#, e)),
     }

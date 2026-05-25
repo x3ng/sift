@@ -24,9 +24,9 @@ pub fn run(store: &Store, path: &str, format: &str) -> Result<(), Box<dyn std::e
                     .map(|t| format!("#{t}"))
                     .collect::<Vec<_>>()
                     .join(" ");
-                writeln!(f, "- [{status}] {}  {tags}", e.headline)?;
-                if !e.body.is_empty() {
-                    writeln!(f, "  {}", e.body)?;
+                writeln!(f, "- [{status}] {}  {tags}", e.name)?;
+                if let Some(text) = e.body.text() {
+                    writeln!(f, "  {text}")?;
                 }
             }
         }

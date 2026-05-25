@@ -1,5 +1,5 @@
 use crate::config::Config;
-use crate::entry::Entry;
+use crate::entry::{Body, Entry};
 use crate::engine::index::Index;
 use crate::io::store::Store;
 use chrono::Local;
@@ -8,7 +8,7 @@ pub fn run(
     store: &Store,
     index: &mut Index,
     _cfg: &Config,
-    headline: String,
+    name: String,
     tag: Vec<String>,
     at: Vec<String>,
     body: Option<String>,
@@ -35,7 +35,8 @@ pub fn run(
         }
     }
 
-    let entry = Entry::new(headline, body.unwrap_or_default(), tags);
+    let body = body.map(|b| Body::Text { content: b }).unwrap_or(Body::Empty);
+    let entry = Entry::new(name, body, tags);
     store.append(&entry)?;
     let id_prefix = entry.id_prefix();
     index.add_entry(entry);

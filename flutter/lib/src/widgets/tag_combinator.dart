@@ -35,6 +35,7 @@ class TagCombinatorState extends State<TagCombinator> {
   final _focus = FocusNode();
   bool _showSuggestions = false;
   final List<String> _tags = [];
+  final List<String> _tagsOr = [];
   final List<String> _tagsNot = [];
   String? _fulltext;
   List<(String, int)> _allTags = [];
@@ -49,11 +50,10 @@ class TagCombinatorState extends State<TagCombinator> {
   String get queryString {
     final parts = <String>[];
     for (final t in _tags) {
-      if (_isDateClause(t)) {
-        parts.add(t);
-      } else {
-        parts.add('#$t');
-      }
+      parts.add(_isDateClause(t) ? t : '#$t');
+    }
+    if (_tagsOr.isNotEmpty) {
+      parts.add('#${_tagsOr.join(',')}');
     }
     for (final t in _tagsNot) {
       parts.add('-#$t');
@@ -85,15 +85,21 @@ class TagCombinatorState extends State<TagCombinator> {
 
   void applyTokens(List<String> tokens) {
     _tags.clear();
+    _tagsOr.clear();
     _tagsNot.clear();
     _fulltext = null;
     for (final t in tokens) {
       if (t.startsWith('-#') && t.length > 2) {
         _tagsNot.add(t.substring(2));
       } else if (t.startsWith('#') && t.length > 1) {
-        _tags.add(t.substring(1));
+        final raw = t.substring(1);
+        if (raw.contains(',')) {
+          _tagsOr.addAll(raw.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty));
+        } else {
+          _tags.add(raw);
+        }
       } else if (_isDateClause(t)) {
-        _tags.add(t);  // date clause stored as-is for search
+        _tags.add(t);
       } else {
         _fulltext = '${_fulltext ?? ''} $t'.trim();
       }
@@ -106,6 +112,9 @@ class TagCombinatorState extends State<TagCombinator> {
     final tokens = <String>[];
     for (final t in _tags) {
       tokens.add(_isDateClause(t) ? t : '#$t');
+    }
+    if (_tagsOr.isNotEmpty) {
+      tokens.add('#${_tagsOr.join(',')}');
     }
     for (final t in _tagsNot) { tokens.add('-#$t'); }
     if (_fulltext != null && _fulltext!.isNotEmpty) tokens.add(_fulltext!);
@@ -160,7 +169,7 @@ class TagCombinatorState extends State<TagCombinator> {
   void _clearFulltext() { setState(() { _fulltext = null; }); _emit(); }
 
   void _clearAll() {
-    setState(() { _tags.clear(); _tagsNot.clear(); _fulltext = null; _ctrl.clear(); });
+    setState(() { _tags.clear(); _tagsOr.clear(); _tagsNot.clear(); _fulltext = null; _ctrl.clear(); });
     _emit();
   }
 
@@ -178,11 +187,13 @@ class TagCombinatorState extends State<TagCombinator> {
     }
     // Search mode: delegate parsing to Rust combinator
     _tags.clear();
+    _tagsOr.clear();
     _tagsNot.clear();
     _fulltext = null;
     try {
       final pq = await siftService.parseQuery(input.trim());
       _tags.addAll(pq.tagsAnd);
+      _tagsOr.addAll(pq.tagsOr);
       _tagsNot.addAll(pq.tagsNot);
       for (final dc in pq.dates) {
         _tags.add('${dc.prefix}:${_dateOpDart(dc.op)}');
@@ -317,7 +328,7 @@ class TagCombinatorState extends State<TagCombinator> {
   @override
   void dispose() { _ctrl.dispose(); _focus.dispose(); super.dispose(); }
 
-  bool get _hasActive => _tags.isNotEmpty || _tagsNot.isNotEmpty || _fulltext != null;
+  bool get _hasActive => _tags.isNotEmpty || _tagsOr.isNotEmpty || _tagsNot.isNotEmpty || _fulltext != null;
 
   @override
   Widget build(BuildContext context) {
@@ -356,6 +367,13 @@ class TagCombinatorState extends State<TagCombinator> {
                 for (final t in _tags) InputChip(
                   label: Text(_isSearch ? '#$t' : t, style: const TextStyle(fontSize: 12)),
                   onDeleted: () => _removeTag(t),
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact, selected: true,
+                ),
+                for (final t in _tagsOr) InputChip(
+                  label: Text('#$t', style: const TextStyle(fontSize: 12)),
+                  onDeleted: () => setState(() { _tagsOr.remove(t); _emit(); }),
+                  backgroundColor: Theme.of(context).colorScheme.tertiaryContainer.withAlpha(100),
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   visualDensity: VisualDensity.compact, selected: true,
                 ),

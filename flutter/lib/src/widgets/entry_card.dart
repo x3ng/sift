@@ -20,7 +20,7 @@ class EntryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tags = (entry.tags as List).cast<String>();
-    final body = (entry.body as String?) ?? '';
+    final bodyText = (entry.body?.text ?? '');
     final cs = Theme.of(context).colorScheme;
 
     return Card(
@@ -56,15 +56,15 @@ class EntryCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(entry.headline.toString(),
+                    Text(entry.name.toString(),
                       style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
                     if (tags.isNotEmpty) ...[
                       const SizedBox(height: 6),
                       TagChips(tags: tags.take(6).toList()),
                     ],
-                    if (body.isNotEmpty) ...[
+                    if (bodyText.isNotEmpty) ...[
                       const SizedBox(height: 6),
-                      Text(body, maxLines: 2, overflow: TextOverflow.ellipsis,
+                      Text(bodyText, maxLines: 2, overflow: TextOverflow.ellipsis,
                         style: TextStyle(fontSize: 13, color: cs.outline)),
                     ],
                   ],

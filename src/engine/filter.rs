@@ -160,13 +160,13 @@ fn priority_score(id: &Uuid, index: &Index, priority_order: &[String]) -> i32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::entry::Entry;
+    use crate::entry::{Body, Entry};
 
     fn test_index() -> Index {
         let entries = vec![
             Entry::new(
                 "urgent task".into(),
-                "".into(),
+                Body::Empty,
                 vec![
                     "urgent".into(),
                     "work".into(),
@@ -176,12 +176,12 @@ mod tests {
             ),
             Entry::new(
                 "normal task".into(),
-                "".into(),
+                Body::Empty,
                 vec!["life".into(), "created/2026-05-22T10:00".into()],
             ),
             Entry::new(
                 "done task".into(),
-                "".into(),
+                Body::Empty,
                 vec![
                     "work".into(),
                     "created/2026-05-19T10:00".into(),

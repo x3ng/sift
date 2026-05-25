@@ -134,19 +134,19 @@ fn parse_tag_timestamp(tag: &str, prefix: &str) -> Option<NaiveDateTime> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::entry::Entry;
+    use crate::entry::{Body, Entry};
 
     #[test]
     fn test_index_rebuild() {
         let entries = vec![
             Entry::new(
                 "one".into(),
-                "".into(),
+                Body::Empty,
                 vec!["work".into(), "created/2026-05-20T10:00".into()],
             ),
             Entry::new(
                 "two".into(),
-                "".into(),
+                Body::Empty,
                 vec!["life".into(), "created/2026-05-21T10:00".into()],
             ),
         ];
@@ -162,9 +162,9 @@ mod tests {
     #[test]
     fn test_tag_counts_sorted() {
         let entries = vec![
-            Entry::new("a".into(), "".into(), vec!["common".into(), "rare".into()]),
-            Entry::new("b".into(), "".into(), vec!["common".into()]),
-            Entry::new("c".into(), "".into(), vec!["common".into()]),
+            Entry::new("a".into(), Body::Empty, vec!["common".into(), "rare".into()]),
+            Entry::new("b".into(), Body::Empty, vec!["common".into()]),
+            Entry::new("c".into(), Body::Empty, vec!["common".into()]),
         ];
         let mut idx = Index::new();
         idx.rebuild_from(&entries);

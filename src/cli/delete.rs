@@ -8,8 +8,15 @@ pub fn run(
     id_prefix: String,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let id = resolve_id(index, &id_prefix)?;
-    let headline = index.entries.get(&id).map(|e| e.headline.clone())
+    let name = index.entries.get(&id).map(|e| e.name.clone())
         .ok_or("entry not found")?;
+
+    // Clean up managed file if body is a file reference
+    if let Some(entry) = index.entries.get(&id) {
+        if let Some(path) = entry.body.file_path() {
+            store.delete_file(path).ok();
+        }
+    }
 
     let mut entries = store.read_all()?;
     entries.retain(|e| e.id != id);
@@ -17,7 +24,7 @@ pub fn run(
 
     index.rebuild_from(&entries);
 
-    println!("deleted: {headline}");
+    println!("deleted: {name}");
     Ok(())
 }
 

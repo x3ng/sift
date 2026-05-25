@@ -22,7 +22,7 @@ class _DetailScreenState extends State<DetailScreen> {
   void initState() {
     super.initState();
     _entry = widget.entry;
-    _bodyCtrl.text = _entry.body;
+    _bodyCtrl.text = _entry.body.text;
   }
 
   @override
@@ -30,7 +30,7 @@ class _DetailScreenState extends State<DetailScreen> {
     super.didUpdateWidget(oldWidget);
     if (widget.entry.id != oldWidget.entry.id) {
       _entry = widget.entry;
-      _bodyCtrl.text = _entry.body;
+      _bodyCtrl.text = _entry.body.text;
       _editingBody = false;
     }
   }
@@ -38,7 +38,7 @@ class _DetailScreenState extends State<DetailScreen> {
   Future<void> _reload() async {
     final e = await siftService.getEntry(_entry.idPrefix);
     if (e != null && mounted) {
-      setState(() { _entry = e; _bodyCtrl.text = e.body; });
+      setState(() { _entry = e; _bodyCtrl.text = e.body.text; });
     }
   }
 
@@ -47,7 +47,7 @@ class _DetailScreenState extends State<DetailScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete'),
-        content: Text('Delete "${_entry.headline}"?'),
+        content: Text('Delete "${_entry.name}"?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           FilledButton(
@@ -71,12 +71,12 @@ class _DetailScreenState extends State<DetailScreen> {
     widget.onChanged?.call();
   }
 
-  Future<void> _editHeadline() async {
-    final ctrl = TextEditingController(text: _entry.headline);
+  Future<void> _editName() async {
+    final ctrl = TextEditingController(text: _entry.name);
     final r = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Edit Headline'),
+        title: const Text('Edit Name'),
         content: TextField(controller: ctrl, autofocus: true),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
@@ -85,7 +85,7 @@ class _DetailScreenState extends State<DetailScreen> {
       ),
     );
     if (r != null && r.isNotEmpty) {
-      await siftService.edit(_entry.idPrefix, headline: r);
+      await siftService.edit(_entry.idPrefix, name: r);
       await _reload();
       widget.onChanged?.call();
     }
@@ -117,11 +117,12 @@ class _DetailScreenState extends State<DetailScreen> {
 
   Future<void> _saveBody() async {
     final text = _bodyCtrl.text.trim();
-    if (text == _entry.body) {
+    if (text == _entry.body.text) {
       setState(() => _editingBody = false);
       return;
     }
-    await siftService.edit(_entry.idPrefix, body: text.isEmpty ? '' : text);
+    final newBody = text.isEmpty ? const FrbBody.empty() : FrbBody.text(text);
+    await siftService.edit(_entry.idPrefix, body: newBody);
     setState(() => _editingBody = false);
     await _reload();
     widget.onChanged?.call();
@@ -170,20 +171,20 @@ class _DetailScreenState extends State<DetailScreen> {
     final cs = Theme.of(context).colorScheme;
 
     return [
-      // Headline
+      // Name
       Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
             child: InkWell(
-              onTap: _editHeadline,
+              onTap: _editName,
               child: Padding(
                 padding: const EdgeInsets.only(top: 12, bottom: 4),
-                child: Text(_entry.headline, style: Theme.of(context).textTheme.titleLarge),
+                child: Text(_entry.name, style: Theme.of(context).textTheme.titleLarge),
               ),
             ),
           ),
-          IconButton(icon: const Icon(Icons.edit, size: 18), onPressed: _editHeadline),
+          IconButton(icon: const Icon(Icons.edit, size: 18), onPressed: _editName),
         ],
       ),
 
@@ -244,10 +245,10 @@ class _DetailScreenState extends State<DetailScreen> {
             fillColor: cs.surfaceContainerHighest.withAlpha(80),
           ),
         )
-      else if (_entry.body.isNotEmpty)
+      else if (!_entry.body.isEmpty)
         InkWell(
           onTap: () => setState(() => _editingBody = true),
-          child: Text(_entry.body),
+          child: Text(_entry.body.text),
         )
       else
         TextButton(

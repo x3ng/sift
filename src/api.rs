@@ -2,7 +2,7 @@ use crate::config::Config;
 use crate::engine::combinator::{parse_query, ParsedQuery};
 use crate::engine::filter::{DuePeriod, FilterOptions, SortMode};
 use crate::engine::index::Index;
-use crate::entry::Entry;
+use crate::entry::{Body, Entry};
 use crate::io::store::Store;
 use chrono::NaiveDate;
 use std::path::PathBuf;
@@ -33,8 +33,8 @@ impl SiftCore {
         Ok(())
     }
 
-    pub fn add(&mut self, headline: String, body: String, tags: Vec<String>) -> Result<Entry, String> {
-        let entry = Entry::new(headline, body, tags);
+    pub fn add(&mut self, name: String, body: Body, tags: Vec<String>) -> Result<Entry, String> {
+        let entry = Entry::new(name, body, tags);
         self.store.append(&entry).map_err(|e| e.to_string())?;
         self.index.add_entry(entry.clone());
         Ok(entry)
@@ -74,17 +74,19 @@ impl SiftCore {
         for view_name in std::mem::take(&mut pq.views) {
             // Find view entry: has tag "view/" and headline matches view_name
             let view_entry = self.index.entries.values().find(|e| {
-                e.has_tag("view/") && e.headline.to_lowercase() == view_name.to_lowercase()
+                e.has_tag("view/") && e.name.to_lowercase() == view_name.to_lowercase()
             });
             let Some(view) = view_entry else {
                 return Err(format!("view not found: @{view_name}"));
             };
-            if view.body.is_empty() {
+            let expr = view.body.text().unwrap_or("").to_string();
+            if expr.is_empty() {
                 return Err(format!("view @{view_name} has no body expression"));
             }
             // Parse the view body as a combinator expression and merge
-            let view_pq = parse_query(&view.body);
+            let view_pq = parse_query(&expr);
             pq.tags_and.extend(view_pq.tags_and);
+            pq.tags_or.extend(view_pq.tags_or);
             pq.tags_not.extend(view_pq.tags_not);
             pq.dates.extend(view_pq.dates);
             if let Some(ft) = view_pq.fulltext {
@@ -101,7 +103,7 @@ impl SiftCore {
     fn apply_parsed(&self, pq: &ParsedQuery, show_done: bool) -> Result<Vec<Entry>, String> {
         let opts = FilterOptions {
             tags_and: pq.tags_and.clone(),
-            tags_or: Vec::new(),
+            tags_or: pq.tags_or.clone(),
             tags_not: pq.tags_not.clone(),
             due_period: None,
             show_done,
@@ -123,8 +125,8 @@ impl SiftCore {
         if let Some(ref ft) = pq.fulltext {
             let q = ft.to_lowercase();
             entries.retain(|e| {
-                e.headline.to_lowercase().contains(&q)
-                    || e.body.to_lowercase().contains(&q)
+                e.name.to_lowercase().contains(&q)
+                    || e.body.searchable_text().to_lowercase().contains(&q)
                     || e.tags.iter().any(|t| t.to_lowercase().contains(&q))
             });
         }
@@ -153,10 +155,10 @@ impl SiftCore {
         Ok(true)
     }
 
-    pub fn edit(&mut self, id: String, headline: Option<String>, body: Option<String>) -> Result<bool, String> {
+    pub fn edit(&mut self, id: String, name: Option<String>, body: Option<Body>) -> Result<bool, String> {
         let uid = resolve_uuid(&self.index, &id)?;
         self.store.update(&uid, |entry| {
-            if let Some(h) = headline { entry.headline = h; }
+            if let Some(n) = name { entry.name = n; }
             if let Some(b) = body { entry.body = b; }
         }).map_err(|e| e.to_string())?;
         self.reload()?;
@@ -165,6 +167,12 @@ impl SiftCore {
 
     pub fn delete(&mut self, id: String) -> Result<bool, String> {
         let uid = resolve_uuid(&self.index, &id)?;
+        // Clean up managed file if body is a file reference
+        if let Some(entry) = self.index.entries.get(&uid) {
+            if let Some(path) = entry.body.file_path() {
+                self.store.delete_file(path).ok();
+            }
+        }
         let mut entries = self.store.read_all().map_err(|e| e.to_string())?;
         entries.retain(|e| e.id != uid);
         self.store.write_all(&entries).map_err(|e| e.to_string())?;
@@ -329,8 +337,8 @@ impl SiftCore {
     pub fn search(&self, query: String) -> Vec<Entry> {
         let q = query.to_lowercase();
         self.index.entries.values()
-            .filter(|e| e.headline.to_lowercase().contains(&q)
-                     || e.body.to_lowercase().contains(&q)
+            .filter(|e| e.name.to_lowercase().contains(&q)
+                     || e.body.searchable_text().to_lowercase().contains(&q)
                      || e.tags.iter().any(|t| t.to_lowercase().contains(&q)))
             .cloned()
             .collect()

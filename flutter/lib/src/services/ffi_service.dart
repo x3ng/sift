@@ -66,19 +66,50 @@ typedef SiftFreeStringDart = void Function(Pointer<Utf8> ptr);
 
 // ── Dart models ──────────────────────────────────────────────────
 
+class FrbBody {
+  final String type; // "text", "markdown", "file", "empty"
+  final String? content;
+  final String? path;
+
+  FrbBody({required this.type, this.content, this.path});
+
+  factory FrbBody.text(String content) => FrbBody(type: 'text', content: content);
+  factory FrbBody.file(String path) => FrbBody(type: 'file', path: path);
+  const FrbBody.empty() : type = 'empty', content = null, path = null;
+
+  factory FrbBody.fromJson(Map<String, dynamic> json) => FrbBody(
+        type: json['type'] as String,
+        content: json['content'] as String?,
+        path: json['path'] as String?,
+      );
+
+  Map<String, dynamic> toJson() {
+    switch (type) {
+      case 'text': return {'type': 'text', 'content': content};
+      case 'file': return {'type': 'file', 'path': path};
+      default: return {'type': 'empty'};
+    }
+  }
+
+  bool get isEmpty => type == 'empty';
+  String get text => content ?? path ?? '';
+}
+
 class FrbEntry {
   final String id;
-  final String headline;
-  final String body;
+  final String name;
+  final FrbBody body;
   final List<String> tags;
 
-  FrbEntry({required this.id, required this.headline, this.body = '', List<String>? tags})
+  FrbEntry({required this.id, required this.name, this.body = const FrbBody.empty(), List<String>? tags})
       : tags = tags ?? [];
 
   factory FrbEntry.fromJson(Map<String, dynamic> json) => FrbEntry(
         id: json['id'] as String,
-        headline: json['headline'] as String,
-        body: (json['body'] as String?) ?? '',
+        name: json['name'] as String,
+        body: json['body'] is Map
+            ? FrbBody.fromJson(json['body'] as Map<String, dynamic>)
+            : FrbBody.text((json['body'] as String?) ?? ''),
         tags: List<String>.from((json['tags'] as List?) ?? []),
       );
 
@@ -87,6 +118,7 @@ class FrbEntry {
 
 class FrbParsedQuery {
   final List<String> tagsAnd;
+  final List<String> tagsOr;
   final List<String> tagsNot;
   final List<FrbDateClause> dates;
   final String? fulltext;
@@ -94,10 +126,11 @@ class FrbParsedQuery {
 
   FrbParsedQuery({
     required this.tagsAnd,
+    required this.tagsOr,
     required this.tagsNot,
     required this.dates,
     this.fulltext,
-  }) : isEmpty = tagsAnd.isEmpty && tagsNot.isEmpty && dates.isEmpty && fulltext == null;
+  }) : isEmpty = tagsAnd.isEmpty && tagsOr.isEmpty && tagsNot.isEmpty && dates.isEmpty && fulltext == null;
 
   factory FrbParsedQuery.fromJson(Map<String, dynamic> json) {
     final dates = (json['dates'] as List?)
@@ -105,6 +138,7 @@ class FrbParsedQuery {
         .toList() ?? [];
     return FrbParsedQuery(
       tagsAnd: List<String>.from((json['tags_and'] as List?) ?? []),
+      tagsOr: List<String>.from((json['tags_or'] as List?) ?? []),
       tagsNot: List<String>.from((json['tags_not'] as List?) ?? []),
       dates: dates,
       fulltext: json['fulltext'] as String?,
@@ -265,12 +299,12 @@ class NativeService {
     return FrbStatsData.fromJson(jsonDecode(json) as Map<String, dynamic>);
   }
 
-  Future<FrbEntry> add(String headline, {String body = '', List<String> tags = const []}) async {
-    final hPtr = headline.toNativeUtf8();
-    final bPtr = body.toNativeUtf8();
+  Future<FrbEntry> add(String name, {FrbBody body = const FrbBody.empty(), List<String> tags = const []}) async {
+    final nPtr = name.toNativeUtf8();
+    final bPtr = jsonEncode(body.toJson()).toNativeUtf8();
     final tPtr = jsonEncode(tags).toNativeUtf8();
-    final ptr = _siftAdd(hPtr, bPtr, tPtr);
-    calloc.free(hPtr); calloc.free(bPtr); calloc.free(tPtr);
+    final ptr = _siftAdd(nPtr, bPtr, tPtr);
+    calloc.free(nPtr); calloc.free(bPtr); calloc.free(tPtr);
     final json = ptr.toDartString();
     _siftFreeString(ptr);
     final decoded = jsonDecode(json);
@@ -287,12 +321,12 @@ class NativeService {
     return result['ok'] == true;
   }
 
-  Future<bool> edit(String id, {String? headline, String? body}) async {
+  Future<bool> edit(String id, {String? name, FrbBody? body}) async {
     final idPtr = id.toNativeUtf8();
-    final hPtr = (headline != null ? jsonEncode(headline) : 'null').toNativeUtf8();
-    final bPtr = (body != null ? jsonEncode(body) : 'null').toNativeUtf8();
-    final ptr = _siftEdit(idPtr, hPtr, bPtr);
-    calloc.free(idPtr); calloc.free(hPtr); calloc.free(bPtr);
+    final nPtr = (name != null ? jsonEncode(name) : 'null').toNativeUtf8();
+    final bPtr = (body != null ? jsonEncode(body.toJson()) : 'null').toNativeUtf8();
+    final ptr = _siftEdit(idPtr, nPtr, bPtr);
+    calloc.free(idPtr); calloc.free(nPtr); calloc.free(bPtr);
     final result = _decode(ptr);
     if (result.containsKey('error')) throw Exception(result['error']);
     return result['ok'] == true;

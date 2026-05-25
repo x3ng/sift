@@ -5,12 +5,17 @@ pub fn run(index: &Index, id_prefix: String) -> Result<(), Box<dyn std::error::E
     let id = resolve_id(index, &id_prefix)?;
     let entry = index.entries.get(&id).ok_or("entry not found")?;
 
-    println!("ID:       {}", entry.id);
-    println!("Headline: {}", entry.headline);
-    println!("Tags:     {}", entry.tags.join(", "));
-    if !entry.body.is_empty() {
-        println!("Body:");
-        println!("{}", entry.body);
+    println!("ID:   {}", entry.id);
+    println!("Name: {}", entry.name);
+    println!("Tags: {}", entry.tags.join(", "));
+    match &entry.body {
+        crate::entry::Body::Text { content } => {
+            println!("Body:\n{content}");
+        }
+        crate::entry::Body::File { path } => {
+            println!("File: {path}");
+        }
+        crate::entry::Body::Empty => {}
     }
     Ok(())
 }

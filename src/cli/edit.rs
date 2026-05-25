@@ -1,4 +1,5 @@
 use crate::engine::index::Index;
+use crate::entry::Body;
 use crate::io::store::Store;
 use uuid::Uuid;
 
@@ -6,20 +7,20 @@ pub fn run(
     store: &Store,
     index: &mut Index,
     id_prefix: String,
-    headline: Option<String>,
+    name: Option<String>,
     body: Option<String>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let id = resolve_id(index, &id_prefix)?;
 
-    if headline.is_none() && body.is_none() {
-        return Err("use --headline or --body to specify what to edit".into());
+    if name.is_none() && body.is_none() {
+        return Err("use --name or --body to specify what to edit".into());
     }
 
-    if let Some(h) = headline {
-        store.update(&id, |entry| entry.headline = h)?;
+    if let Some(n) = name {
+        store.update(&id, |entry| entry.name = n)?;
     }
     if let Some(b) = body {
-        store.update(&id, |entry| entry.body = b)?;
+        store.update(&id, |entry| entry.body = Body::Text { content: b })?;
     }
 
     let entries = store.read_all()?;

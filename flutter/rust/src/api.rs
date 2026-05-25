@@ -5,16 +5,46 @@
 
 use sift::api::SiftCore;
 use sift::engine::combinator;
-use sift::entry::Entry;
+use sift::entry::{Body, Entry};
 use serde::{Deserialize, Serialize};
 
 // ── DTOs ──────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum FrbBody {
+    #[serde(rename = "text")]
+    Text { content: String },
+    #[serde(rename = "file")]
+    File { path: String },
+    #[serde(rename = "empty")]
+    Empty,
+}
+
+impl FrbBody {
+    pub fn text(&self) -> Option<&str> {
+        match self {
+            FrbBody::Text { content } => Some(content),
+            _ => None,
+        }
+    }
+}
+
+impl From<Body> for FrbBody {
+    fn from(b: Body) -> Self {
+        match b {
+            Body::Text { content } => FrbBody::Text { content },
+            Body::File { path } => FrbBody::File { path },
+            Body::Empty => FrbBody::Empty,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FrbEntry {
     pub id: String,
-    pub headline: String,
-    pub body: String,
+    pub name: String,
+    pub body: FrbBody,
     pub tags: Vec<String>,
 }
 
@@ -28,8 +58,8 @@ impl From<Entry> for FrbEntry {
     fn from(e: Entry) -> Self {
         FrbEntry {
             id: e.id.to_string(),
-            headline: e.headline,
-            body: e.body,
+            name: e.name,
+            body: FrbBody::from(e.body),
             tags: e.tags,
         }
     }
@@ -38,6 +68,7 @@ impl From<Entry> for FrbEntry {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FrbParsedQuery {
     pub tags_and: Vec<String>,
+    pub tags_or: Vec<String>,
     pub tags_not: Vec<String>,
     pub dates: Vec<FrbDateClause>,
     pub fulltext: Option<String>,
@@ -76,12 +107,23 @@ impl From<combinator::ParsedQuery> for FrbParsedQuery {
     fn from(pq: combinator::ParsedQuery) -> Self {
         FrbParsedQuery {
             tags_and: pq.tags_and,
+            tags_or: pq.tags_or,
             tags_not: pq.tags_not,
             dates: pq.dates.into_iter().map(|d| FrbDateClause {
                 prefix: d.prefix,
                 op: d.op.into(),
             }).collect(),
             fulltext: pq.fulltext,
+        }
+    }
+}
+
+impl From<FrbBody> for Body {
+    fn from(b: FrbBody) -> Self {
+        match b {
+            FrbBody::Text { content } => Body::Text { content },
+            FrbBody::File { path } => Body::File { path },
+            FrbBody::Empty => Body::Empty,
         }
     }
 }
@@ -144,8 +186,8 @@ impl SiftCoreWrapper {
 
     // ── mutating ───────────────────────────────────────────────
 
-    pub fn add(&mut self, headline: String, body: String, tags: Vec<String>) -> Result<FrbEntry, String> {
-        self.inner.add(headline, body, tags).map(FrbEntry::from)
+    pub fn add(&mut self, name: String, body: FrbBody, tags: Vec<String>) -> Result<FrbEntry, String> {
+        self.inner.add(name, body.into(), tags).map(FrbEntry::from)
     }
 
     pub fn done(&mut self, id: String) -> Result<bool, String> {
@@ -156,8 +198,8 @@ impl SiftCoreWrapper {
         self.inner.undo(id)
     }
 
-    pub fn edit(&mut self, id: String, headline: Option<String>, body: Option<String>) -> Result<bool, String> {
-        self.inner.edit(id, headline, body)
+    pub fn edit(&mut self, id: String, name: Option<String>, body: Option<FrbBody>) -> Result<bool, String> {
+        self.inner.edit(id, name, body.map(|b| b.into()))
     }
 
     pub fn delete(&mut self, id: String) -> Result<bool, String> {

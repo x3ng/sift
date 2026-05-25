@@ -1,4 +1,6 @@
 use crate::entry::Entry;
+#[cfg(test)]
+use crate::entry::Body;
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
@@ -12,6 +14,35 @@ pub struct Store {
 impl Store {
     pub fn new(path: PathBuf, backup_dir: PathBuf) -> Self {
         Self { path, backup_dir }
+    }
+
+    /// Directory for managed files (relative paths in Body::File point here).
+    pub fn files_dir(&self) -> PathBuf {
+        self.path.parent().unwrap_or(Path::new(".")).join("files")
+    }
+
+    /// Copy an external file into sift's managed files directory.
+    /// Returns the relative path to store in Body::File.
+    pub fn import_file(&self, source: &Path) -> Result<String, Box<dyn std::error::Error>> {
+        let ext = source.extension().and_then(|e| e.to_str()).unwrap_or("");
+        let dest_name = if ext.is_empty() {
+            uuid::Uuid::new_v4().to_string()
+        } else {
+            format!("{}.{}", uuid::Uuid::new_v4(), ext)
+        };
+        let dest = self.files_dir().join(&dest_name);
+        fs::create_dir_all(self.files_dir())?;
+        fs::copy(source, &dest)?;
+        Ok(format!("files/{}", dest_name))
+    }
+
+    /// Delete a managed file (given the relative path stored in Body::File).
+    pub fn delete_file(&self, relative_path: &str) -> Result<(), Box<dyn std::error::Error>> {
+        let abs = self.path.parent().unwrap_or(Path::new(".")).join(relative_path);
+        if abs.exists() {
+            fs::remove_file(abs)?;
+        }
+        Ok(())
     }
 
     /// Append a single entry to the JSONL file
@@ -119,29 +150,29 @@ mod tests {
     #[test]
     fn test_append_and_read() {
         let (store, _dir) = test_store();
-        let e1 = Entry::new("one".into(), "".into(), vec!["test".into()]);
-        let e2 = Entry::new("two".into(), "".into(), vec!["test".into()]);
+        let e1 = Entry::new("one".into(), Body::Empty, vec!["test".into()]);
+        let e2 = Entry::new("two".into(), Body::Empty, vec!["test".into()]);
 
         store.append(&e1).unwrap();
         store.append(&e2).unwrap();
 
         let entries = store.read_all().unwrap();
         assert_eq!(entries.len(), 2);
-        assert_eq!(entries[0].headline, "one");
+        assert_eq!(entries[0].name, "one");
     }
 
     #[test]
     fn test_update_entry() {
         let (store, _dir) = test_store();
-        let e = Entry::new("old".into(), "".into(), vec![]);
+        let e = Entry::new("old".into(), Body::Empty, vec![]);
         let id = e.id;
         store.append(&e).unwrap();
 
         store
-            .update(&id, |entry| entry.headline = "new".into())
+            .update(&id, |entry| entry.name = "new".into())
             .unwrap();
 
         let entries = store.read_all().unwrap();
-        assert_eq!(entries[0].headline, "new");
+        assert_eq!(entries[0].name, "new");
     }
 }

@@ -53,7 +53,7 @@ pub fn run(
                 return Ok(());
             }
             let mut table = Table::new();
-            table.set_header(vec!["ID", "Headline", "Tags", "Due"]);
+            table.set_header(vec!["ID", "Name", "Tags", "Due"]);
             for id in &ids {
                 if let Some(entry) = index.entries.get(id) {
                     let tags_str = entry.tags.iter()
@@ -65,7 +65,7 @@ pub fn run(
                         .unwrap_or_default();
                     table.add_row(vec![
                         entry.id_prefix(),
-                        entry.headline.clone(),
+                        entry.name.clone(),
                         tags_str,
                         due_str,
                     ]);

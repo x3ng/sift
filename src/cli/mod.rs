@@ -24,7 +24,7 @@ pub struct Cli {
 pub enum Command {
     /// Add a new entry
     Add {
-        headline: String,
+        name: String,
         #[arg(short, long, value_delimiter = ',')]
         tag: Vec<String>,
         #[arg(long, value_delimiter = ',')]
@@ -57,11 +57,11 @@ pub enum Command {
         #[arg(long, value_delimiter = ',')]
         at: Vec<String>,
     },
-    /// Edit an entry's headline or body
+    /// Edit an entry's name or body
     Edit {
         id_prefix: String,
         #[arg(long)]
-        headline: Option<String>,
+        name: Option<String>,
         #[arg(long)]
         body: Option<String>,
     },
@@ -139,11 +139,11 @@ pub fn run() {
 
     let result = match cli.command {
         Command::Add {
-            headline,
+            name,
             tag,
             at,
             body,
-        } => add::run(&store, &mut index, &cfg, headline, tag, at, body),
+        } => add::run(&store, &mut index, &cfg, name, tag, at, body),
         Command::List {
             tags_and,
             tags_or,
@@ -162,9 +162,9 @@ pub fn run() {
         } => tag_cmd::run(&store, &mut index, &cfg, id_prefix, add, rm, at),
         Command::Edit {
             id_prefix,
-            headline,
+            name,
             body,
-        } => edit::run(&store, &mut index, id_prefix, headline, body),
+        } => edit::run(&store, &mut index, id_prefix, name, body),
         Command::Delete { id_prefix } => delete::run(&store, &mut index, id_prefix),
         Command::Show { id_prefix } => show::run(&index, id_prefix),
         Command::Tags { like } => tags_cmd::run(&index, like),

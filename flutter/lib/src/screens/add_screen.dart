@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../main.dart';
+import '../services/ffi_service.dart';
 import '../widgets/tag_combinator.dart';
 
 class AddScreen extends StatefulWidget {
@@ -9,16 +10,18 @@ class AddScreen extends StatefulWidget {
 }
 
 class _AddScreenState extends State<AddScreen> {
-  final _headlineCtrl = TextEditingController();
+  final _nameCtrl = TextEditingController();
   final _bodyCtrl = TextEditingController();
   final List<String> _tags = [];
 
   Future<void> _submit() async {
-    final headline = _headlineCtrl.text.trim();
-    if (headline.isEmpty) return;
-    await siftService.add(headline, body: _bodyCtrl.text.trim(), tags: _tags);
+    final name = _nameCtrl.text.trim();
+    if (name.isEmpty) return;
+    final bodyText = _bodyCtrl.text.trim();
+    final body = bodyText.isNotEmpty ? FrbBody.text(bodyText) : const FrbBody.empty();
+    await siftService.add(name, body: body, tags: _tags);
     if (mounted) {
-      _headlineCtrl.clear(); _bodyCtrl.clear();
+      _nameCtrl.clear(); _bodyCtrl.clear();
       setState(() => _tags.clear());
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text('Added'), duration: Duration(seconds: 1),
@@ -29,7 +32,7 @@ class _AddScreenState extends State<AddScreen> {
 
   @override
   void dispose() {
-    _headlineCtrl.dispose();
+    _nameCtrl.dispose();
     _bodyCtrl.dispose();
     super.dispose();
   }
@@ -40,8 +43,8 @@ class _AddScreenState extends State<AddScreen> {
       padding: const EdgeInsets.all(16),
       child: Column(children: [
         TextField(
-          controller: _headlineCtrl,
-          decoration: const InputDecoration(labelText: 'Headline', border: OutlineInputBorder()),
+          controller: _nameCtrl,
+          decoration: const InputDecoration(labelText: 'Name', border: OutlineInputBorder()),
           autofocus: true, textInputAction: TextInputAction.next),
         const SizedBox(height: 12),
         TextField(

@@ -1,4 +1,4 @@
-use crate::entry::Entry;
+use crate::entry::{Body, Entry};
 use crate::engine::index::Index;
 use crate::io::store::Store;
 use std::fs;
@@ -78,5 +78,5 @@ fn parse_md_line(line: &str) -> Option<Entry> {
         tags.push(format!("done/{now}"));
     }
 
-    Some(Entry::new(headline_parts.join(" "), String::new(), tags))
+    Some(Entry::new(headline_parts.join(" "), Body::Empty, tags))
 }
