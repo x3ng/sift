@@ -22,20 +22,20 @@ impl SiftCore {
         let store = Store::new(cfg.entries_path(), cfg.backup_dir());
         let entries = store.read_all().map_err(|e| e.to_string())?;
         let mut index = Index::new();
-        index.rebuild_from(&entries);
+        index.rebuild_from(&entries, &cfg.tags.date_prefixes);
         Ok(Self { store, index, cfg })
     }
 
     pub fn reload(&mut self) -> Result<(), String> {
         let entries = self.store.read_all().map_err(|e| e.to_string())?;
-        self.index.rebuild_from(&entries);
+        self.index.rebuild_from(&entries, &self.cfg.tags.date_prefixes);
         Ok(())
     }
 
     pub fn add(&mut self, name: String, body: Body, tags: Vec<String>) -> Result<Entry, String> {
         let entry = Entry::new(name, body, tags);
         self.store.append(&entry).map_err(|e| e.to_string())?;
-        self.index.add_entry(entry.clone());
+        self.index.add_entry(entry.clone(), &self.cfg.tags.date_prefixes);
         Ok(entry)
     }
 
@@ -86,7 +86,7 @@ impl SiftCore {
         }
         for view_name in std::mem::take(&mut pq.views) {
             let view_entry = self.index.entries.values().find(|e| {
-                e.has_tag("view/") && e.name.to_lowercase() == view_name.to_lowercase()
+                e.has_tag("$view") && e.name.to_lowercase() == view_name.to_lowercase()
             });
             let Some(view) = view_entry else {
                 return Err(format!("view not found: @{view_name}"));
@@ -184,28 +184,6 @@ impl SiftCore {
             });
         }
         Ok(entries)
-    }
-
-    pub fn done(&mut self, id: String) -> Result<bool, String> {
-        let uid = resolve_uuid(&self.index, &id)?;
-        let now = chrono::Local::now().format("%Y-%m-%dT%H:%M").to_string();
-        self.store.update(&uid, |entry| {
-            if !entry.tags.iter().any(|t| t.starts_with("done/")) {
-                entry.tags.push(format!("done/{now}"));
-                entry.tags.sort();
-            }
-        }).map_err(|e| e.to_string())?;
-        self.reload()?;
-        Ok(true)
-    }
-
-    pub fn undo(&mut self, id: String) -> Result<bool, String> {
-        let uid = resolve_uuid(&self.index, &id)?;
-        self.store.update(&uid, |entry| {
-            entry.tags.retain(|t| !t.starts_with("done/"));
-        }).map_err(|e| e.to_string())?;
-        self.reload()?;
-        Ok(true)
     }
 
     pub fn edit(&mut self, id: String, name: Option<String>, body: Option<Body>) -> Result<bool, String> {

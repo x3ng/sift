@@ -7,7 +7,7 @@ use chrono::Local;
 pub fn run(
     store: &Store,
     index: &mut Index,
-    _cfg: &Config,
+    cfg: &Config,
     name: String,
     tag: Vec<String>,
     at: Vec<String>,
@@ -39,7 +39,7 @@ pub fn run(
     let entry = Entry::new(name, body, tags);
     store.append(&entry)?;
     let id_prefix = entry.id_prefix();
-    index.add_entry(entry);
+    index.add_entry(entry, &cfg.tags.date_prefixes);
 
     println!("{id_prefix}");
     Ok(())

@@ -5,8 +5,6 @@ The combinator system is sift's query language. Primitives compose into expressi
 ## Grammar
 
 ```
-expression := clause+
-
 expression := group ('|' group)*            # `|` = union of groups
 
 group      := clause*
@@ -75,11 +73,11 @@ By default: `created`, `done`, `due`.
 
 ## Named views (`@`)
 
-A view is a combinator expression saved with a name. Stored as entries with `view/` tag.
+A view is a combinator expression saved with a name. Stored as entries with `view` tag.
 
 ```
-sift add "Work" --tag view/ --body "#work/* -#done/*"
-sift add "Urgent" --tag view/ --body "#urgent -#done/*"
+sift add "Work" --tag view --body "#work/* -#done/*"
+sift add "Urgent" --tag view --body "#urgent -#done/*"
 ```
 
 Then query with `@Work` — the engine inlines the view's expression before filtering.
@@ -134,6 +132,6 @@ Neither is a replacement for the other. SQL is general; combinator is fast to ty
 
 | Primitive | Idea | Status |
 |-----------|------|--------|
-| `\|` | OR between clauses: `#urgent \| #bug` | planned |
 | `~` | fuzzy / semantic: `~like this` | deferred |
-| `>` | sort: `>due` | planned |
+| `()` | grouping: `(#urgent \| #bug) -#done` | planned |
+| `<>` | comparison: `due:<2026-06-01` | planned |

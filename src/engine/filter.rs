@@ -225,6 +225,7 @@ fn priority_score(id: &Uuid, index: &Index, priority_order: &[String]) -> i32 {
 mod tests {
     use super::*;
     use crate::entry::{Body, Entry};
+    use std::collections::HashMap;
 
     fn test_index() -> Index {
         let entries = vec![
@@ -254,7 +255,8 @@ mod tests {
             ),
         ];
         let mut idx = Index::new();
-        idx.rebuild_from(&entries);
+        let prefixes: HashMap<String, String> = HashMap::new();
+        idx.rebuild_from(&entries, &prefixes);
         idx
     }
 

@@ -7,7 +7,7 @@ use uuid::Uuid;
 pub fn run(
     store: &Store,
     index: &mut Index,
-    _cfg: &Config,
+    cfg: &Config,
     id_prefix: String,
     add: Vec<String>,
     rm: Vec<String>,
@@ -52,7 +52,7 @@ pub fn run(
     })?;
 
     let entries = store.read_all()?;
-    index.rebuild_from(&entries);
+    index.rebuild_from(&entries, &cfg.tags.date_prefixes);
 
     println!("{}", id_prefix);
     Ok(())

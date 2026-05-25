@@ -171,24 +171,6 @@ pub extern "C" fn sift_tag(id: *const c_char, add_json: *const c_char, rm_json: 
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn sift_done(id: *const c_char) -> *mut c_char {
-    let id_str = unsafe { CStr::from_ptr(id).to_string_lossy().to_string() };
-    match with_state(|w| w.done(id_str)) {
-        Ok(v) => to_c_string(format!(r#"{{"ok":{}}}"#, v)),
-        Err(e) => to_c_string(format!(r#"{{"error":"{}"}}"#, e)),
-    }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn sift_undo(id: *const c_char) -> *mut c_char {
-    let id_str = unsafe { CStr::from_ptr(id).to_string_lossy().to_string() };
-    match with_state(|w| w.undo(id_str)) {
-        Ok(v) => to_c_string(format!(r#"{{"ok":{}}}"#, v)),
-        Err(e) => to_c_string(format!(r#"{{"error":"{}"}}"#, e)),
-    }
-}
-
-#[unsafe(no_mangle)]
 pub extern "C" fn sift_rename_tag(old: *const c_char, new: *const c_char) -> *mut c_char {
     let old_str = unsafe { CStr::from_ptr(old).to_string_lossy().to_string() };
     let new_str = unsafe { CStr::from_ptr(new).to_string_lossy().to_string() };

@@ -198,13 +198,7 @@ impl SiftCoreWrapper {
         self.inner.add(name, b, tags).map(FrbEntry::from)
     }
 
-    pub fn done(&mut self, id: String) -> Result<bool, String> {
-        self.inner.done(id)
-    }
 
-    pub fn undo(&mut self, id: String) -> Result<bool, String> {
-        self.inner.undo(id)
-    }
 
     pub fn edit(&mut self, id: String, name: Option<String>, body: Option<FrbBody>) -> Result<bool, String> {
         self.inner.edit(id, name, body.map(|b| b.into()))

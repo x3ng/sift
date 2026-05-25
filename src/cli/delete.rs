@@ -1,3 +1,4 @@
+use crate::config::Config;
 use crate::engine::index::Index;
 use crate::io::store::Store;
 use uuid::Uuid;
@@ -5,6 +6,7 @@ use uuid::Uuid;
 pub fn run(
     store: &Store,
     index: &mut Index,
+    cfg: &Config,
     id_prefix: String,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let id = resolve_id(index, &id_prefix)?;
@@ -22,7 +24,7 @@ pub fn run(
     entries.retain(|e| e.id != id);
     store.write_all(&entries)?;
 
-    index.rebuild_from(&entries);
+    index.rebuild_from(&entries, &cfg.tags.date_prefixes);
 
     println!("deleted: {name}");
     Ok(())

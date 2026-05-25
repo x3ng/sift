@@ -8,7 +8,7 @@ use uuid::Uuid;
 pub fn run(
     store: &Store,
     index: &mut Index,
-    _cfg: &crate::config::Config,
+    cfg: &crate::config::Config,
     tags_and: Vec<String>,
     tags_or: Vec<String>,
     tags_not: Vec<String>,
@@ -44,7 +44,7 @@ pub fn run(
         let id_set: std::collections::HashSet<Uuid> = ids.iter().copied().collect();
         entries.retain(|e| !id_set.contains(&e.id));
         store.write_all(&entries)?;
-        index.rebuild_from(&entries);
+        index.rebuild_from(&entries, &cfg.tags.date_prefixes);
         println!("deleted {} entries", ids.len());
         return Ok(());
     }
@@ -85,7 +85,7 @@ pub fn run(
     }
 
     store.write_all(&entries)?;
-    index.rebuild_from(&entries);
+    index.rebuild_from(&entries, &cfg.tags.date_prefixes);
     println!("modified {modified} entries");
     Ok(())
 }

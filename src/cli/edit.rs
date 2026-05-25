@@ -1,3 +1,4 @@
+use crate::config::Config;
 use crate::engine::index::Index;
 use crate::entry::Body;
 use crate::io::store::Store;
@@ -6,6 +7,7 @@ use uuid::Uuid;
 pub fn run(
     store: &Store,
     index: &mut Index,
+    cfg: &Config,
     id_prefix: String,
     name: Option<String>,
     body: Option<String>,
@@ -24,7 +26,7 @@ pub fn run(
     }
 
     let entries = store.read_all()?;
-    index.rebuild_from(&entries);
+    index.rebuild_from(&entries, &cfg.tags.date_prefixes);
 
     println!("{}", id_prefix);
     Ok(())

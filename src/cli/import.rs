@@ -1,10 +1,11 @@
+use crate::config::Config;
 use crate::entry::{Body, Entry};
 use crate::engine::index::Index;
 use crate::io::store::Store;
 use std::fs;
 use std::io::BufRead;
 
-pub fn run(store: &Store, index: &mut Index, path: &str, merge: bool) -> Result<(), Box<dyn std::error::Error>> {
+pub fn run(store: &Store, index: &mut Index, cfg: &Config, path: &str, merge: bool) -> Result<(), Box<dyn std::error::Error>> {
     let file = fs::File::open(path)
         .map_err(|e| format!("cannot open {path}: {e}"))?;
     let reader = std::io::BufReader::new(file);
@@ -36,12 +37,12 @@ pub fn run(store: &Store, index: &mut Index, path: &str, merge: bool) -> Result<
         for e in &added {
             store.append(e)?;
         }
-        index.rebuild_from(&store.read_all()?);
+        index.rebuild_from(&store.read_all()?, &cfg.tags.date_prefixes);
         println!("imported {count} new entries (merged, {total} total)", total = existing.len() + count);
     } else {
         // Replace all
         store.write_all(&new_entries)?;
-        index.rebuild_from(&new_entries);
+        index.rebuild_from(&new_entries, &cfg.tags.date_prefixes);
         println!("imported {} entries (replaced)", new_entries.len());
     }
 

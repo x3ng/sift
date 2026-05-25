@@ -137,7 +137,7 @@ pub fn run() {
         vec![]
     });
     let mut index = Index::new();
-    index.rebuild_from(&entries);
+    index.rebuild_from(&entries, &cfg.tags.date_prefixes);
 
     let result = match cli.command {
         Command::Add {
@@ -167,8 +167,8 @@ pub fn run() {
             id_prefix,
             name,
             body,
-        } => edit::run(&store, &mut index, id_prefix, name, body),
-        Command::Delete { id_prefix } => delete::run(&store, &mut index, id_prefix),
+        } => edit::run(&store, &mut index, &cfg, id_prefix, name, body),
+        Command::Delete { id_prefix } => delete::run(&store, &mut index, &cfg, id_prefix),
         Command::Show { id_prefix } => show::run(&index, id_prefix),
         Command::Tags { like } => tags_cmd::run(&index, like),
         Command::Search { query } => search_cmd::run(&index, query),
@@ -176,7 +176,7 @@ pub fn run() {
             batch::run(&store, &mut index, &cfg, tags_and, tags_or, tags_not, due, add_tags, rm_tags, delete),
         Command::Stats => stats::run(&index),
         Command::Export { path, format } => export::run(&store, &path, &format),
-        Command::Import { path, merge } => import::run(&store, &mut index, &path, merge),
+        Command::Import { path, merge } => import::run(&store, &mut index, &cfg, &path, merge),
         Command::Completion { shell } => {
             use clap::CommandFactory;
             use clap_complete::{

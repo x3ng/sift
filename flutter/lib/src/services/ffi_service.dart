@@ -40,12 +40,6 @@ typedef SiftEditDart = Pointer<Utf8> Function(Pointer<Utf8> id, Pointer<Utf8> he
 typedef SiftTagNative = Pointer<Utf8> Function(Pointer<Utf8> id, Pointer<Utf8> addJson, Pointer<Utf8> rmJson);
 typedef SiftTagDart = Pointer<Utf8> Function(Pointer<Utf8> id, Pointer<Utf8> addJson, Pointer<Utf8> rmJson);
 
-typedef SiftDoneNative = Pointer<Utf8> Function(Pointer<Utf8> id);
-typedef SiftDoneDart = Pointer<Utf8> Function(Pointer<Utf8> id);
-
-typedef SiftUndoNative = Pointer<Utf8> Function(Pointer<Utf8> id);
-typedef SiftUndoDart = Pointer<Utf8> Function(Pointer<Utf8> id);
-
 typedef SiftRenameTagNative = Pointer<Utf8> Function(Pointer<Utf8> old, Pointer<Utf8> newTag);
 typedef SiftRenameTagDart = Pointer<Utf8> Function(Pointer<Utf8> old, Pointer<Utf8> newTag);
 
@@ -172,8 +166,6 @@ class NativeService {
   late final SiftDeleteDart _siftDelete;
   late final SiftEditDart _siftEdit;
   late final SiftTagDart _siftTag;
-  late final SiftDoneDart _siftDone;
-  late final SiftUndoDart _siftUndo;
   late final SiftRenameTagDart _siftRenameTag;
   late final SiftBatchDeleteDart _siftBatchDelete;
   late final SiftBatchTagDart _siftBatchTag;
@@ -221,8 +213,6 @@ class NativeService {
     _siftDelete = _lib.lookupFunction<SiftDeleteNative, SiftDeleteDart>('sift_delete');
     _siftEdit = _lib.lookupFunction<SiftEditNative, SiftEditDart>('sift_edit');
     _siftTag = _lib.lookupFunction<SiftTagNative, SiftTagDart>('sift_tag');
-    _siftDone = _lib.lookupFunction<SiftDoneNative, SiftDoneDart>('sift_done');
-    _siftUndo = _lib.lookupFunction<SiftUndoNative, SiftUndoDart>('sift_undo');
     _siftRenameTag = _lib.lookupFunction<SiftRenameTagNative, SiftRenameTagDart>('sift_rename_tag');
     _siftBatchDelete = _lib.lookupFunction<SiftBatchDeleteNative, SiftBatchDeleteDart>('sift_batch_delete');
     _siftBatchTag = _lib.lookupFunction<SiftBatchTagNative, SiftBatchTagDart>('sift_batch_tag');
@@ -293,7 +283,7 @@ class NativeService {
   }
 
   Future<List<FrbEntry>> getViews() async {
-    final qPtr = '#view'.toNativeUtf8();
+    final qPtr = '#\$view'.toNativeUtf8();
     final ptr = _siftListParsed(qPtr, 1);
     calloc.free(qPtr);
     return _decodeList(ptr, 'getViews').map((e) => FrbEntry.fromJson(e)).toList();
@@ -353,24 +343,6 @@ class NativeService {
     final rmPtr = jsonEncode(rmTags).toNativeUtf8();
     final ptr = _siftTag(idPtr, addPtr, rmPtr);
     calloc.free(idPtr); calloc.free(addPtr); calloc.free(rmPtr);
-    final result = _decode(ptr);
-    if (result.containsKey('error')) throw Exception(result['error']);
-    return result['ok'] == true;
-  }
-
-  Future<bool> done(String id) async {
-    final idPtr = id.toNativeUtf8();
-    final ptr = _siftDone(idPtr);
-    calloc.free(idPtr);
-    final result = _decode(ptr);
-    if (result.containsKey('error')) throw Exception(result['error']);
-    return result['ok'] == true;
-  }
-
-  Future<bool> undo(String id) async {
-    final idPtr = id.toNativeUtf8();
-    final ptr = _siftUndo(idPtr);
-    calloc.free(idPtr);
     final result = _decode(ptr);
     if (result.containsKey('error')) throw Exception(result['error']);
     return result['ok'] == true;
