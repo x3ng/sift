@@ -283,7 +283,7 @@ class NativeService {
   }
 
   Future<List<FrbEntry>> getViews() async {
-    final qPtr = '#\$view'.toNativeUtf8();
+    final qPtr = '#view'.toNativeUtf8();
     final ptr = _siftListParsed(qPtr, 1);
     calloc.free(qPtr);
     return _decodeList(ptr, 'getViews').map((e) => FrbEntry.fromJson(e)).toList();

@@ -86,7 +86,7 @@ impl SiftCore {
         }
         for view_name in std::mem::take(&mut pq.views) {
             let view_entry = self.index.entries.values().find(|e| {
-                e.has_tag("$view") && e.name.to_lowercase() == view_name.to_lowercase()
+                e.has_tag("view") && e.name.to_lowercase() == view_name.to_lowercase()
             });
             let Some(view) = view_entry else {
                 return Err(format!("view not found: @{view_name}"));

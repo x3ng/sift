@@ -72,12 +72,12 @@ class _HomeScreenState extends State<HomeScreen> {
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeOut,
       width: w,
-      clipBehavior: Clip.hardEdge,
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: cs.surfaceContainerLow.withAlpha(isDark ? 60 : 40),
         border: Border(right: BorderSide(color: cs.outlineVariant.withAlpha(40))),
       ),
-      child: Column(children: [
+      child: SizedBox(width: w, child: Column(children: [
         const SizedBox(height: 8),
         InkWell(
           onTap: () => setState(() => _railOpen = !_railOpen),
@@ -108,7 +108,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _railAction(Icons.upload_rounded, 'Export', _showExportDialog),
         _railAction(Icons.download_rounded, 'Import', _showImportDialog),
         const SizedBox(height: 8),
-      ]),
+      ])),
     );
   }
 
