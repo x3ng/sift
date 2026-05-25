@@ -68,16 +68,14 @@ class _HomeScreenState extends State<HomeScreen> {
     final w = _railOpen ? 160.0 : 48.0;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOut,
+    return Container(
       width: w,
-      clipBehavior: Clip.antiAlias,
+      clipBehavior: Clip.hardEdge,
       decoration: BoxDecoration(
         color: cs.surfaceContainerLow.withAlpha(isDark ? 60 : 40),
         border: Border(right: BorderSide(color: cs.outlineVariant.withAlpha(40))),
       ),
-      child: SizedBox(width: w, child: Column(children: [
+      child: Column(children: [
         const SizedBox(height: 8),
         InkWell(
           onTap: () => setState(() => _railOpen = !_railOpen),
@@ -108,7 +106,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _railAction(Icons.upload_rounded, 'Export', _showExportDialog),
         _railAction(Icons.download_rounded, 'Import', _showImportDialog),
         const SizedBox(height: 8),
-      ])),
+      ]),
     );
   }
 
