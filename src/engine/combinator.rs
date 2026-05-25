@@ -20,6 +20,9 @@ pub struct ParsedQuery {
     pub dates: Vec<DateClause>,
     pub fulltext: Option<String>,
     pub views: Vec<String>,
+    pub sort_by: Option<SortDirective>,
+    /// Alternatives from `|` — each is a fully parsed query; union semantics.
+    pub alternatives: Vec<ParsedQuery>,
 }
 
 impl ParsedQuery {
@@ -30,6 +33,8 @@ impl ParsedQuery {
             && self.dates.is_empty()
             && self.fulltext.is_none()
             && self.views.is_empty()
+            && self.sort_by.is_none()
+            && self.alternatives.is_empty()
     }
 }
 
@@ -52,20 +57,65 @@ pub enum DateOp {
     Overdue,
 }
 
-/// Parse a combinator query string into a structured query.
-/// @view references are collected into `ParsedQuery::views` for later resolution.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum SortDirective {
+    Due,
+    Created,
+}
+
+/// Parse a combinator query string. `|` splits into alternatives (union semantics).
 pub fn parse_query(input: &str) -> ParsedQuery {
+    let groups = split_alternatives(input);
+    if groups.is_empty() {
+        return ParsedQuery::default();
+    }
+    if groups.len() == 1 {
+        parse_single(&groups[0])
+    } else {
+        let mut alts: Vec<ParsedQuery> = groups.iter().map(|g| parse_single(g)).collect();
+        // Pop the first as the primary, rest as alternatives
+        let primary = alts.remove(0);
+        let mut pq = primary;
+        pq.alternatives = alts;
+        pq
+    }
+}
+
+fn split_alternatives(input: &str) -> Vec<String> {
+    let mut groups = Vec::new();
+    let mut current = String::new();
+    let mut in_quote = false;
+    for c in input.chars() {
+        match c {
+            '"' => { in_quote = !in_quote; current.push(c); }
+            '|' if !in_quote => {
+                let trimmed = current.trim().to_string();
+                if !trimmed.is_empty() { groups.push(trimmed); }
+                current = String::new();
+            }
+            _ => current.push(c),
+        }
+    }
+    let trimmed = current.trim().to_string();
+    if !trimmed.is_empty() { groups.push(trimmed); }
+    groups
+}
+
+fn parse_single(input: &str) -> ParsedQuery {
     let mut tags_and = Vec::new();
     let mut tags_or = Vec::new();
     let mut tags_not = Vec::new();
     let mut dates = Vec::new();
     let mut views = Vec::new();
     let mut fulltext_words = Vec::new();
+    let mut sort_by = None;
 
     let tokens = tokenize(input);
 
     for token in &tokens {
-        if token.starts_with("@") && token.len() > 1 {
+        if let Some(dir) = parse_sort(token) {
+            sort_by = Some(dir);
+        } else if token.starts_with("@") && token.len() > 1 {
             views.push(token[1..].to_string());
         } else if token.starts_with("-#") && token.len() > 2 {
             let raw = &token[2..];
@@ -107,6 +157,17 @@ pub fn parse_query(input: &str) -> ParsedQuery {
             Some(fulltext_words.join(" "))
         },
         views,
+        sort_by,
+        alternatives: vec![],
+    }
+}
+
+fn parse_sort(token: &str) -> Option<SortDirective> {
+    if !token.starts_with('>') || token.len() < 2 { return None; }
+    match &token[1..] {
+        "due" => Some(SortDirective::Due),
+        "created" => Some(SortDirective::Created),
+        _ => None,
     }
 }
 
@@ -254,5 +315,39 @@ mod tests {
     fn test_parse_exclude_or() {
         let q = parse_query("-#blocked,done");
         assert_eq!(q.tags_not, vec!["blocked", "done"]);
+    }
+
+    #[test]
+    fn test_parse_alternatives() {
+        let q = parse_query("#urgent | done:today");
+        assert_eq!(q.tags_and, vec!["urgent"]);
+        assert_eq!(q.alternatives.len(), 1);
+        assert_eq!(q.alternatives[0].dates.len(), 1);
+        assert_eq!(q.alternatives[0].dates[0].prefix, "done");
+    }
+
+    #[test]
+    fn test_parse_sort() {
+        let q = parse_query("#work >due");
+        assert_eq!(q.tags_and, vec!["work"]);
+        assert!(matches!(q.sort_by, Some(SortDirective::Due)));
+    }
+
+    #[test]
+    fn test_parse_alternatives_with_sort() {
+        let q = parse_query("#urgent >due | #bug >created");
+        assert_eq!(q.tags_and, vec!["urgent"]);
+        assert!(matches!(q.sort_by, Some(SortDirective::Due)));
+        assert_eq!(q.alternatives.len(), 1);
+        assert_eq!(q.alternatives[0].tags_and, vec!["bug"]);
+        assert!(matches!(q.alternatives[0].sort_by, Some(SortDirective::Created)));
+    }
+
+    #[test]
+    fn test_parse_wildcard_date() {
+        let q = parse_query("*:today");
+        assert_eq!(q.dates.len(), 1);
+        assert_eq!(q.dates[0].prefix, "*");
+        assert!(matches!(q.dates[0].op, DateOp::Today));
     }
 }

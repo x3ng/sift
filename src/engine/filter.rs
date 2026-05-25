@@ -32,6 +32,7 @@ pub struct FilterOptions {
     pub sort_by: SortMode,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum SortMode {
     Default,
     Created,

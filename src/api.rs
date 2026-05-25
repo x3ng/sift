@@ -72,13 +72,19 @@ impl SiftCore {
         self.apply_parsed(&pq, show_done)
     }
 
-    /// Resolve @view references in a ParsedQuery by inlining the view's combinator expression.
     fn resolve_views(&self, pq: &mut ParsedQuery) -> Result<(), String> {
+        self.resolve_views_inner(pq)?;
+        for alt in &mut pq.alternatives {
+            self.resolve_views_inner(alt)?;
+        }
+        Ok(())
+    }
+
+    fn resolve_views_inner(&self, pq: &mut ParsedQuery) -> Result<(), String> {
         if pq.views.is_empty() {
             return Ok(());
         }
         for view_name in std::mem::take(&mut pq.views) {
-            // Find view entry: has tag "view/" and headline matches view_name
             let view_entry = self.index.entries.values().find(|e| {
                 e.has_tag("view/") && e.name.to_lowercase() == view_name.to_lowercase()
             });
@@ -89,7 +95,6 @@ impl SiftCore {
             if expr.is_empty() {
                 return Err(format!("view @{view_name} has no body expression"));
             }
-            // Parse the view body as a combinator expression and merge
             let view_pq = parse_query(&expr);
             pq.tags_and.extend(view_pq.tags_and);
             pq.tags_or.extend(view_pq.tags_or);
@@ -101,12 +106,40 @@ impl SiftCore {
                     None => ft,
                 });
             }
+            if pq.sort_by.is_none() {
+                pq.sort_by = view_pq.sort_by;
+            }
+            pq.alternatives.extend(view_pq.alternatives);
         }
         Ok(())
     }
 
     /// Apply an already-parsed (and view-resolved) query to the index.
     fn apply_parsed(&self, pq: &ParsedQuery, show_done: bool) -> Result<Vec<Entry>, String> {
+        // Determine sort mode: query directive > default
+        let sort_mode = match pq.sort_by {
+            Some(combinator::SortDirective::Due) => SortMode::Due,
+            Some(combinator::SortDirective::Created) => SortMode::Created,
+            None => SortMode::Default,
+        };
+
+        let mut all_entries = self.apply_one(pq, show_done, &sort_mode)?;
+
+        // Union with | alternatives
+        for alt in &pq.alternatives {
+            let alt_entries = self.apply_one(alt, show_done, &sort_mode)?;
+            let existing_ids: std::collections::HashSet<_> = all_entries.iter().map(|e| e.id).collect();
+            for e in alt_entries {
+                if !existing_ids.contains(&e.id) {
+                    all_entries.push(e);
+                }
+            }
+        }
+
+        Ok(all_entries)
+    }
+
+    fn apply_one(&self, pq: &ParsedQuery, show_done: bool, sort_mode: &SortMode) -> Result<Vec<Entry>, String> {
         let date_filters: Vec<DateFilter> = pq.dates.iter().map(|dc| {
             let op = match dc.op {
                 combinator::DateOp::Today => FilterDateOp::Today,
@@ -129,7 +162,7 @@ impl SiftCore {
             date_filters,
             show_done,
             only_done: false,
-            sort_by: SortMode::Default,
+            sort_by: *sort_mode,  // Copy now available
         };
         let mut ids = opts.apply(&self.index);
         crate::engine::filter::sort_ids(
@@ -142,7 +175,6 @@ impl SiftCore {
             .iter()
             .filter_map(|id| self.index.entries.get(id).cloned())
             .collect();
-        // Apply fulltext filter
         if let Some(ref ft) = pq.fulltext {
             let q = ft.to_lowercase();
             entries.retain(|e| {

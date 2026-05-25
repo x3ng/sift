@@ -7,7 +7,11 @@ The combinator system is sift's query language. Primitives compose into expressi
 ```
 expression := clause+
 
-clause     := include | or | exclude | date | view | fulltext
+expression := group ('|' group)*            # `|` = union of groups
+
+group      := clause*
+
+clause     := include | or | exclude | date | view | fulltext | sort
 
 include    := '#' tag-name  ['/*']         # must match ALL
 or         := '#' tag-name (',' tag-name)+ # must match ANY
@@ -15,7 +19,8 @@ exclude    := '-#' tag-name ['/*']         # must NOT match
 date       := prefix ':' period            # tag prefix has date in period
              | '*:' period                 # any prefix has date in period
 view       := '@' view-name               # expand named view
-fulltext   := '"' text '"' | bare-word    # search headline/body/tags
+fulltext   := '"' text '"' | bare-word    # search name/body/tags
+sort       := '>due' | '>created'         # sort results
 
 period     := 'today' | 'yesterday' | 'tomorrow'
             | 'this-week' | 'last-week' | 'next-week'
@@ -31,12 +36,14 @@ tag-name   := [a-zA-Z0-9][a-zA-Z0-9._-]* ('/' [a-zA-Z0-9][a-zA-Z0-9._-]*)*
 | Token | Name | Role | Example |
 |-------|------|------|---------|
 | `#` | include | entry MUST have this tag | `#urgent` |
-| `,` | OR | any of the comma-joined tags | `#urgent,bug` |
+| `,` | clause OR | any of the comma-joined values | `#urgent,bug` |
+| `\|` | group OR | union of separate filter groups | `#urgent \| done:today` |
 | `-` | exclude | entry must NOT have this tag | `-#blocked` |
 | `*` | wildcard | match any sub-tag (prefix) | `#work/*` |
 | `:` | date resolver | filter by date period | `done:this-week` |
 | `*:` | wildcard date | any prefix matches the period | `*:today` |
 | `@` | view | expand a named view | `@Work` |
+| `>` | sort | sort by field | `>due`, `>created` |
 | `"` | quoting | literal text (spaces, special chars) | `"fix login"` |
 
 ## Semantics
@@ -49,6 +56,8 @@ All clauses **AND** together. Commas **OR** within a single clause.
 #urgent #work,life      → must have urgent AND (work OR life)
 done:this-week,today    → done this week OR done today
 #work/* -#blocked       → any work sub-tag, not blocked
+#urgent | done:today    → has #urgent OR was done today
+#work >due              → work entries, sorted by due date
 ```
 
 The wildcard `#work/*` matches `work/rtd`, `work/design`, etc.  
