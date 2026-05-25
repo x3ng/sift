@@ -112,6 +112,16 @@ install(DIRECTORY "${NATIVE_ASSETS_DIR}"
    DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
    COMPONENT Runtime)
 
+# Rust FFI library (libsift_ffi.so)
+# Build it first: cd flutter/rust && cargo build
+set(SIFT_FFI_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../rust/target/debug")
+if(NOT CMAKE_BUILD_TYPE MATCHES "Debug")
+  set(SIFT_FFI_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../rust/target/release")
+endif()
+install(FILES "${SIFT_FFI_LIB_DIR}/libsift_ffi.so"
+  DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+  COMPONENT Runtime)
+
 # Fully re-copy the assets directory on each build to avoid having stale files
 # from a previous install.
 set(FLUTTER_ASSET_DIR_NAME "flutter_assets")

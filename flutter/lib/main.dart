@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'src/services/api.dart';
+import 'src/services/ffi_service.dart';
 import 'src/screens/home.dart';
 
-final siftService = SiftService();
+final siftService = NativeService();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

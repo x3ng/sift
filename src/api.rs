@@ -27,7 +27,7 @@ impl SiftCore {
         Ok(Self { store, index, cfg })
     }
 
-    fn reload(&mut self) -> Result<(), String> {
+    pub fn reload(&mut self) -> Result<(), String> {
         let entries = self.store.read_all().map_err(|e| e.to_string())?;
         self.index.rebuild_from(&entries);
         Ok(())
@@ -217,6 +217,109 @@ impl SiftCore {
             self.reload()?;
         }
         Ok(modified)
+    }
+
+    /// Get a single entry by id prefix. Returns None if not found or ambiguous.
+    pub fn get_entry(&self, id_prefix: &str) -> Option<Entry> {
+        let matches: Vec<&Entry> = self.index.entries.values()
+            .filter(|e| e.id.to_string().starts_with(id_prefix))
+            .collect();
+        if matches.len() == 1 { Some(matches[0].clone()) } else { None }
+    }
+
+    /// Delete multiple entries by id prefix. Returns count deleted.
+    pub fn batch_delete(&mut self, id_prefixes: Vec<String>) -> Result<usize, String> {
+        let mut entries = self.store.read_all().map_err(|e| e.to_string())?;
+        let before = entries.len();
+        entries.retain(|e| !id_prefixes.iter().any(|p| e.id.to_string().starts_with(p)));
+        let deleted = before - entries.len();
+        if deleted > 0 {
+            self.store.write_all(&entries).map_err(|e| e.to_string())?;
+            self.reload()?;
+        }
+        Ok(deleted)
+    }
+
+    /// Add/remove tags on multiple entries by id prefix. Returns count modified.
+    pub fn batch_tag(&mut self, id_prefixes: Vec<String>, add_tags: Vec<String>, rm_tags: Vec<String>) -> Result<usize, String> {
+        let mut entries = self.store.read_all().map_err(|e| e.to_string())?;
+        let mut modified = 0;
+        for entry in &mut entries {
+            if !id_prefixes.iter().any(|p| entry.id.to_string().starts_with(p)) {
+                continue;
+            }
+            let mut changed = false;
+            for tag in &add_tags {
+                let clean = tag.trim().trim_start_matches('#');
+                if !entry.tags.iter().any(|t| t == clean) {
+                    entry.tags.push(clean.to_string());
+                    changed = true;
+                }
+            }
+            for pattern in &rm_tags {
+                if pattern.ends_with('*') {
+                    let prefix = pattern.trim_end_matches('*');
+                    let before = entry.tags.len();
+                    entry.tags.retain(|t| !t.starts_with(prefix));
+                    if entry.tags.len() < before { changed = true; }
+                } else {
+                    let clean = pattern.trim().trim_start_matches('#');
+                    if entry.tags.iter().any(|t| t == clean) {
+                        entry.tags.retain(|t| t != clean);
+                        changed = true;
+                    }
+                }
+            }
+            if changed {
+                entry.tags.sort();
+                entry.tags.dedup();
+                modified += 1;
+            }
+        }
+        if modified > 0 {
+            self.store.write_all(&entries).map_err(|e| e.to_string())?;
+            self.reload()?;
+        }
+        Ok(modified)
+    }
+
+    /// Export all entries to a JSONL file.
+    pub fn export_to(&self, path: String) -> Result<(), String> {
+        let entries = self.store.read_all().map_err(|e| e.to_string())?;
+        let mut content = String::new();
+        for entry in &entries {
+            let line = serde_json::to_string(entry).map_err(|e| e.to_string())?;
+            content.push_str(&line);
+            content.push('\n');
+        }
+        std::fs::create_dir_all(
+            std::path::Path::new(&path).parent().unwrap_or(std::path::Path::new(".")),
+        ).map_err(|e| e.to_string())?;
+        std::fs::write(&path, &content).map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    /// Import entries from a JSONL file (merge: skip duplicates by id).
+    pub fn import_from(&mut self, path: String) -> Result<usize, String> {
+        let content = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
+        let existing_ids: std::collections::HashSet<uuid::Uuid> =
+            self.index.entries.keys().copied().collect();
+        let mut new_entries = Vec::new();
+        for line in content.lines() {
+            let trimmed = line.trim();
+            if trimmed.is_empty() { continue; }
+            if let Ok(entry) = serde_json::from_str::<Entry>(trimmed) {
+                if !existing_ids.contains(&entry.id) {
+                    new_entries.push(entry);
+                }
+            }
+        }
+        let added = new_entries.len();
+        if added > 0 {
+            self.store.append_batch(&new_entries).map_err(|e| e.to_string())?;
+            self.reload()?;
+        }
+        Ok(added)
     }
 
     pub fn all_tags(&self) -> Vec<(String, usize)> {

@@ -8,4 +8,5 @@ crate-type = ["cdylib", "staticlib"]
 
 [dependencies]
 sift = { path = "../.." }
-flutter_rust_bridge = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

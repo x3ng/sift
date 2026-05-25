@@ -14,6 +14,7 @@ class TagCombinator extends StatefulWidget {
   final void Function(List<String> tags, String? fulltext) onChanged;
   final String? hint;
   final Widget? trailing;
+  final bool pinned;
 
   const TagCombinator({
     super.key,
@@ -22,6 +23,7 @@ class TagCombinator extends StatefulWidget {
     required this.onChanged,
     this.hint,
     this.trailing,
+    this.pinned = false,
   });
 
   @override
@@ -43,6 +45,39 @@ class TagCombinatorState extends State<TagCombinator> {
   List<String> get excludeTags => List.from(_tagsNot);
   String? get fulltext => _fulltext;
 
+  /// Reconstruct the combinator query string from current chips.
+  String get queryString {
+    final parts = <String>[];
+    for (final t in _tags) {
+      if (_isDateClause(t)) {
+        parts.add(t);
+      } else {
+        parts.add('#$t');
+      }
+    }
+    for (final t in _tagsNot) {
+      parts.add('-#$t');
+    }
+    if (_fulltext != null && _fulltext!.isNotEmpty) {
+      parts.add('"$_fulltext"');
+    }
+    return parts.join(' ');
+  }
+
+  bool _isDateClause(String s) {
+    final colon = s.indexOf(':');
+    if (colon <= 0 || colon == s.length - 1) return false;
+    final prefix = s.substring(0, colon);
+    final period = s.substring(colon + 1);
+    return RegExp(r'^[a-z][a-z-]*$').hasMatch(prefix) && _datePeriods.contains(period);
+  }
+
+  static const _datePeriods = {
+    'today', 'yesterday', 'tomorrow',
+    'this-week', 'last-week', 'next-week',
+    'this-month', 'last-month', 'overdue',
+  };
+
   Future<void> reloadTags() async {
     final tags = await siftService.allTags();
     if (mounted) setState(() => _allTags = tags);
@@ -57,7 +92,7 @@ class TagCombinatorState extends State<TagCombinator> {
         _tagsNot.add(t.substring(2));
       } else if (t.startsWith('#') && t.length > 1) {
         _tags.add(t.substring(1));
-      } else if (RegExp(r'^[a-z][a-z-]*:(this-week|last-week|today|yesterday|tomorrow|overdue|this-month|last-month|next-week)$').hasMatch(t)) {
+      } else if (_isDateClause(t)) {
         _tags.add(t);  // date clause stored as-is for search
       } else {
         _fulltext = '${_fulltext ?? ''} $t'.trim();
@@ -69,7 +104,9 @@ class TagCombinatorState extends State<TagCombinator> {
 
   List<String> getTokens() {
     final tokens = <String>[];
-    for (final t in _tags) { tokens.add('#$t'); }
+    for (final t in _tags) {
+      tokens.add(_isDateClause(t) ? t : '#$t');
+    }
     for (final t in _tagsNot) { tokens.add('-#$t'); }
     if (_fulltext != null && _fulltext!.isNotEmpty) tokens.add(_fulltext!);
     return tokens;
@@ -127,7 +164,7 @@ class TagCombinatorState extends State<TagCombinator> {
     _emit();
   }
 
-  void _onSubmit(String input) {
+  Future<void> _onSubmit(String input) async {
     if (input.trim().isEmpty) return;
     if (!_isSearch) {
       // Tagging mode: every token is a tag, resolve date shorthands
@@ -139,18 +176,22 @@ class TagCombinatorState extends State<TagCombinator> {
       _ctrl.clear(); _showSuggestions = false; _emit(); setState(() {});
       return;
     }
-    // Search mode: parse query-syntax tokens
-    final tokens = _tokenize(input);
-    for (final token in tokens) {
-      if (token.startsWith('-#') && token.length > 2) {
-        _addExclude(token.substring(2));
-      } else if (token.startsWith('#') && token.length > 1) {
-        _addTag(token.substring(1));
-      } else if (_isSearch && RegExp(r'^[a-z][a-z-]*:(this-week|last-week|today|yesterday|tomorrow|overdue|this-month|last-month|next-week)$').hasMatch(token)) {
-        _addTag(token);  // date clause
-      } else {
-        _addFulltext(token);
+    // Search mode: delegate parsing to Rust combinator
+    _tags.clear();
+    _tagsNot.clear();
+    _fulltext = null;
+    try {
+      final pq = await siftService.parseQuery(input.trim());
+      _tags.addAll(pq.tagsAnd);
+      _tagsNot.addAll(pq.tagsNot);
+      for (final dc in pq.dates) {
+        _tags.add('${dc.prefix}:${_dateOpDart(dc.op)}');
       }
+      if (pq.fulltext != null && pq.fulltext!.isNotEmpty) {
+        _fulltext = pq.fulltext;
+      }
+    } catch (_) {
+      _fulltext = input.trim();
     }
     _ctrl.clear(); _showSuggestions = false; _emit(); setState(() {});
   }
@@ -177,19 +218,19 @@ class TagCombinatorState extends State<TagCombinator> {
 
   String _pad(int n) => n.toString().padLeft(2, '0');
 
-  List<String> _tokenize(String input) {
-    final tokens = <String>[];
-    final buf = StringBuffer();
-    var inQuote = false;
-    for (var i = 0; i < input.length; i++) {
-      final c = input[i];
-      if (c == '"') { inQuote = !inQuote; continue; }
-      if (c == ' ' && !inQuote) {
-        if (buf.isNotEmpty) { tokens.add(buf.toString()); buf.clear(); }
-      } else { buf.write(c); }
+  String _dateOpDart(String op) {
+    switch (op) {
+      case 'Today': return 'today';
+      case 'Yesterday': return 'yesterday';
+      case 'Tomorrow': return 'tomorrow';
+      case 'ThisWeek': return 'this-week';
+      case 'LastWeek': return 'last-week';
+      case 'NextWeek': return 'next-week';
+      case 'ThisMonth': return 'this-month';
+      case 'LastMonth': return 'last-month';
+      case 'Overdue': return 'overdue';
+      default: return op;
     }
-    if (buf.isNotEmpty) tokens.add(buf.toString());
-    return tokens;
   }
 
   String _todayStr() => _dateStr('today');
@@ -340,19 +381,6 @@ class TagCombinatorState extends State<TagCombinator> {
       // Suggestions dropdown
       if (_showSuggestions && _focus.hasFocus)
         ..._buildSuggestions(),
-
-      // Tag bar (search mode only, when not focused)
-      if (_isSearch && (!_showSuggestions || !_focus.hasFocus))
-        SizedBox(height: 34, child: ListView(scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-          children: _allTags.take(30).map((t) => Padding(padding: const EdgeInsets.only(right: 6),
-            child: FilterChip(
-              label: Text('#${t.$1}  ${t.$2}', style: const TextStyle(fontSize: 11)),
-              selected: _tags.contains(t.$1),
-              onSelected: (_) => _tags.contains(t.$1) ? _removeTag(t.$1) : _addTag(t.$1),
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              visualDensity: VisualDensity.compact,
-            ))).toList())),
 
       const Divider(height: 1),
     ]);

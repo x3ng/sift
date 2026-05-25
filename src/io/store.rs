@@ -65,6 +65,20 @@ impl Store {
         Ok(())
     }
 
+    /// Append multiple entries to the JSONL file efficiently.
+    pub fn append_batch(&self, entries: &[Entry]) -> Result<(), Box<dyn std::error::Error>> {
+        ensure_parent(&self.path)?;
+        let mut file = fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&self.path)?;
+        for entry in entries {
+            let line = serde_json::to_string(entry)?;
+            writeln!(file, "{line}")?;
+        }
+        Ok(())
+    }
+
     /// Replace a single entry by id. Returns true if found and replaced.
     pub fn update(
         &self,

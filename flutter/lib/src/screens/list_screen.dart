@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../main.dart';
-import '../services/api.dart';
+import '../services/ffi_service.dart';
 import '../services/prefs.dart';
-import '../services/query.dart';
 import 'detail_screen.dart';
 import '../widgets/entry_card.dart';
 import '../widgets/filter_bar.dart';
@@ -16,9 +15,8 @@ class ListScreen extends StatefulWidget {
 }
 
 class _ListScreenState extends State<ListScreen> {
-  List<Entry> _entries = [];
+  List<FrbEntry> _entries = [];
   bool _loading = true;
-  ParsedQuery _query = ParsedQuery(tagsAnd: [], tagsNot: [], dates: []);
   final _filterKey = GlobalKey<FilterBarState>();
   bool _filterPinned = false;
 
@@ -49,27 +47,42 @@ class _ListScreenState extends State<ListScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final dateFilters = <String, String>{};
-    for (final dc in _query.dates) {
-      dateFilters[dc.prefix] = _opStr(dc.op);
+    final q = _filterKey.currentState?.queryString ?? '';
+    try {
+      final result = await siftService.listParsed(q, showDone: false);
+      if (mounted) {
+        setState(() { _entries = result; _loading = false; });
+        _filterKey.currentState?.reloadTags();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() { _entries = []; _loading = false; });
+      }
     }
-    var result = await siftService.list(
-      tagsAnd: _query.tagsAnd,
-      tagsNot: _query.tagsNot,
-      dateFilters: dateFilters,
+  }
+
+  Widget _buildPinChip() {
+    final cs = Theme.of(context).colorScheme;
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: _pinCurrentFilter,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          color: _filterPinned ? cs.primaryContainer : null,
+          border: _filterPinned ? null : Border.all(color: cs.outlineVariant),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(_filterPinned ? Icons.push_pin : Icons.push_pin_outlined, size: 14,
+              color: _filterPinned ? cs.primary : cs.outline),
+          if (_filterPinned) ...[
+            const SizedBox(width: 4),
+            Text('Saved', style: TextStyle(fontSize: 11, color: cs.primary, fontWeight: FontWeight.w500)),
+          ],
+        ]),
+      ),
     );
-    if (_query.fulltext != null && _query.fulltext!.isNotEmpty) {
-      final q = _query.fulltext!.toLowerCase();
-      result = result.where((e) =>
-          e.headline.toLowerCase().contains(q) ||
-          e.body.toLowerCase().contains(q) ||
-          e.tags.any((t) => t.toLowerCase().contains(q))
-      ).toList();
-    }
-    if (mounted) {
-      setState(() { _entries = result; _loading = false; });
-      _filterKey.currentState?.reloadTags();
-    }
   }
 
   Future<void> _pinCurrentFilter() async {
@@ -85,14 +98,14 @@ class _ListScreenState extends State<ListScreen> {
 
   // -- Selection --
 
-  void _enterSelection(Entry entry) {
+  void _enterSelection(FrbEntry entry) {
     setState(() {
       _selectionMode = true;
       _selectedIds.add(entry.idPrefix);
     });
   }
 
-  void _toggleSelection(Entry entry) {
+  void _toggleSelection(FrbEntry entry) {
     setState(() {
       if (_selectedIds.contains(entry.idPrefix)) {
         _selectedIds.remove(entry.idPrefix);
@@ -158,30 +171,11 @@ class _ListScreenState extends State<ListScreen> {
     }
   }
 
-  String _opStr(DateOp op) {
-    switch (op) {
-      case DateOp.today: return 'today';
-      case DateOp.yesterday: return 'yesterday';
-      case DateOp.tomorrow: return 'tomorrow';
-      case DateOp.thisWeek: return 'this-week';
-      case DateOp.lastWeek: return 'last-week';
-      case DateOp.nextWeek: return 'next-week';
-      case DateOp.thisMonth: return 'this-month';
-      case DateOp.lastMonth: return 'last-month';
-      case DateOp.overdue: return 'overdue';
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Column(children: [
-      FilterBar(key: _filterKey, onChanged: (q) { _query = q; _load(); },
-        trailing: _selectionMode ? null : IconButton(
-          icon: Icon(_filterPinned ? Icons.push_pin : Icons.push_pin_outlined, size: 18),
-          tooltip: _filterPinned ? 'Update pinned filter' : 'Pin as default',
-          onPressed: _pinCurrentFilter,
-          visualDensity: VisualDensity.compact,
-        )),
+      FilterBar(key: _filterKey, onChanged: () => _load(),
+        trailing: _selectionMode ? null : _buildPinChip()),
       Expanded(child: _buildList()),
       if (_selectionMode) _buildActionBar(),
     ]);
@@ -189,7 +183,7 @@ class _ListScreenState extends State<ListScreen> {
 
   Widget _buildList() {
     if (_loading) return const Center(child: CircularProgressIndicator());
-    final hasFilter = !_query.isEmpty;
+    final hasFilter = (_filterKey.currentState?.queryString ?? '').isNotEmpty;
 
     if (_entries.isEmpty) {
       return Center(child: Padding(padding: const EdgeInsets.all(32), child: Column(
