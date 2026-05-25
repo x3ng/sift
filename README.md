@@ -69,11 +69,11 @@ done:this-week       date filter
 plain text           fulltext in name/body/tags
 ```
 
-See [COMBINATOR.md](COMBINATOR.md) for the full grammar.
+See [docs/COMBINATOR.md](docs/COMBINATOR.md) for the full grammar.
 
 ## Architecture
 
-See [ARCHITECTURE.md](ARCHITECTURE.md).
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## License
 
