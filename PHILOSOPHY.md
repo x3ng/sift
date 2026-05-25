@@ -23,7 +23,7 @@ SiftCore (Rust)          ← definitive engine
 
 **Rule:** logic goes in the engine layer. Frontends only handle rendering and interaction. The combinator parser, date resolver, query engine — all in Rust. When a feature could live in either layer, it belongs in core.
 
-Current Dart `SiftService` directly reads JSONL as a temporary measure before `flutter_rust_bridge` code generation is wired up. The Dart `query.dart` parser is a duplicate of what should be in Rust.
+Flutter calls Rust via `dart:ffi` — a thin `NativeService` passes JSON over C FFI. No logic is duplicated in Dart.
 
 ## Combinator system
 
@@ -33,11 +33,16 @@ Inspired by Vim: operators + motions = commands. Tag combinators are primitives 
 
 | Token | Role | Search | Tag input |
 |-------|------|--------|-----------|
-| `#` | include | `#urgent` → filter | N/A |
+| `#` | include AND | `#urgent` → filter | N/A |
+| `,` | include OR | `#urgent,bug` → any | N/A |
+| `\|` | group OR | `#urgent \| done:today` → union | N/A |
 | `-` | exclude | `-#blocked` → omit | N/A |
 | `/` | hierarchy | `#work/rtd` → subtree | `work/rtd` → nested tag |
 | `:` | date resolver | `done:this-week` → period | `meeting:today` → `meeting/2026-05-24` |
+| `*:` | wildcard date | `*:today` → any prefix's date | N/A |
 | `*` | wildcard | `#work/*` → any sub-tag | N/A |
+| `>` | sort | `>due` `>created` → order | N/A |
+| `@` | view | `@Work` → named view | N/A |
 | `"` | quoting | `"fix login"` → literal | `"tag with spaces"` → literal |
 
 ### Conflict prevention
@@ -66,7 +71,7 @@ A named view is a saved combinator expression — "a tag expression given a name
 "Urgent" = #urgent -#done/*
 ```
 
-Views persist in `~/.config/sift/views.json`. API: `save_view`, `list_views`, `get_view`, `delete_view`.
+Views are stored as regular entries with tag `view` and body = combinator expression. The GUI renders them as sidebar/drawer tabs.
 
 ## The lambda architecture
 

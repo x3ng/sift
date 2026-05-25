@@ -26,37 +26,22 @@ Config at `~/.config/sift/config.toml` defines which prefixes carry date semanti
 
 Storage: single JSONL file at `~/.local/share/sift/entries.jsonl`. No database.
 
-## Install
-
-### NixOS
+## Quick start
 
 ```bash
-nix-shell shell.nix
-cargo build --release
-```
-
-### Other Linux / macOS
-
-```bash
-# need: rust, cargo
-cargo build --release
-```
-
-### Flutter GUI (Linux + Android)
-
-```bash
-cd flutter
-flutter build linux --debug
-flutter run -d linux
+make check      # build + test Rust core
+make gui        # build Flutter GUI
+make gui-run    # build + launch Flutter GUI
+make help       # show all targets
 ```
 
 ## CLI Reference
 
 ```
-sift add <headline> --tag <tags> --at <spec> --body <text>
-sift list --tag|--any|--exclude --due <period> --sort --format
+sift add <name> --tag <tags> --at <spec> --body <text>
+sift list --tag|--any|--exclude --due <period> --query <combinator> --sort --format
 sift tag <id> --add <tags> --rm <tags> --at <spec>
-sift edit <id> --headline|--body
+sift edit <id> --name|--body
 sift delete <id>
 sift show <id>
 sift tags --like <pattern>
@@ -68,15 +53,23 @@ sift import <path> --merge
 sift completion bash|zsh|fish
 ```
 
-### Query syntax (GUI search bar)
+### Combinator query (search bar & `--query`)
 
 ```
-#urgent         exact tag match
-#work/*         wildcard prefix
--#blocked       exclude tag
-done:this-week  date filter on any configured prefix
-plain text      full-text in headline/body/tags
+#urgent              exact tag match
+#urgent,bug          any of these (OR)
+#urgent | done:today  union of groups (OR)
+#work/*              wildcard prefix
+-#blocked            exclude tag
+done:this-week       date filter
+*:today              any prefix's date is today
+>due                 sort by due date
+@Work                named view
+"fix login"          quoted fulltext
+plain text           fulltext in name/body/tags
 ```
+
+See [COMBINATOR.md](COMBINATOR.md) for the full grammar.
 
 ## Architecture
 
