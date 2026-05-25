@@ -20,12 +20,28 @@ class SiftApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       themeMode: ThemeMode.system,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF6750A4), brightness: Brightness.light),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF556B7A),
+          brightness: Brightness.light,
+        ),
         useMaterial3: true,
+        cardTheme: const CardThemeData(
+          elevation: 0,
+          margin: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+        ),
       ),
       darkTheme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFD0BCFF), brightness: Brightness.dark),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF8BA1AE),
+          brightness: Brightness.dark,
+        ),
         useMaterial3: true,
+        cardTheme: const CardThemeData(
+          elevation: 0,
+          margin: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+        ),
       ),
       home: const HomeScreen(),
     );

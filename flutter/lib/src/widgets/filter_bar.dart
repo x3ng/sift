@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'tag_combinator.dart';
 
 /// Filter bar — thin wrapper over TagCombinator in search mode.
-/// Passes the raw query string to the parent; Rust does the parsing.
 class FilterBar extends StatefulWidget {
   final VoidCallback onChanged;
+  final Widget? leading;
   final Widget? trailing;
-  const FilterBar({super.key, required this.onChanged, this.trailing});
+  const FilterBar({super.key, required this.onChanged, this.leading, this.trailing});
 
   @override
   State<FilterBar> createState() => FilterBarState();
@@ -26,6 +26,7 @@ class FilterBarState extends State<FilterBar> {
   Widget build(BuildContext context) => TagCombinator(
     key: _key,
     mode: CombinatorMode.search,
+    leading: widget.leading,
     trailing: widget.trailing,
     onChanged: (_, _) => widget.onChanged(),
   );

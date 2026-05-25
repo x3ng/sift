@@ -13,6 +13,7 @@ class TagCombinator extends StatefulWidget {
   final List<String> initialTags;
   final void Function(List<String> tags, String? fulltext) onChanged;
   final String? hint;
+  final Widget? leading;
   final Widget? trailing;
   final bool pinned;
 
@@ -22,6 +23,7 @@ class TagCombinator extends StatefulWidget {
     this.initialTags = const [],
     required this.onChanged,
     this.hint,
+    this.leading,
     this.trailing,
     this.pinned = false,
   });
@@ -338,36 +340,41 @@ class TagCombinatorState extends State<TagCombinator> {
       Container(
         margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
         decoration: BoxDecoration(
-          color: cs.surfaceContainerHighest.withAlpha(60),
-          borderRadius: BorderRadius.circular(6),
+          color: cs.surfaceContainerHighest.withAlpha(50),
+          borderRadius: BorderRadius.circular(8),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            Expanded(child: SizedBox(height: 44, child: TextField(
+            if (widget.leading != null) widget.leading!,
+            Expanded(child: TextField(
               controller: _ctrl, focusNode: _focus,
-              style: const TextStyle(fontSize: 14),
+              style: const TextStyle(fontSize: 14, height: 1.3),
               decoration: InputDecoration(
                 hintText: widget.hint ?? (_isSearch
-                    ? 'Filter...  #tag  done:week'
-                    : 'Add tag...  done:today  work/rtd'),
-                hintStyle: TextStyle(fontSize: 14, color: cs.outline.withAlpha(150)),
-                prefixIcon: Icon(_isSearch ? Icons.search : Icons.label_outline, size: 20, color: cs.outline),
+                    ? 'Filter... #tag done:week'
+                    : 'Add tag... done:today work/rtd'),
+                hintStyle: TextStyle(fontSize: 14, color: cs.outline.withAlpha(120)),
+                prefixIcon: Padding(
+                  padding: const EdgeInsets.only(left: 4, right: 4),
+                  child: Icon(_isSearch ? Icons.search : Icons.label_outline, size: 20, color: cs.outline),
+                ),
                 suffixIcon: _hasActive
                     ? IconButton(icon: Icon(Icons.close, size: 16, color: cs.outline), onPressed: _clearAll)
                     : null,
+                isDense: true,
                 border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
               ),
               onSubmitted: _onSubmit,
               onChanged: (_) => setState(() => _showSuggestions = true),
-            ))),
+            )),
             if (widget.trailing != null) widget.trailing!,
           ]),
 
           if (_hasActive)
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
               child: Wrap(spacing: 4, runSpacing: 4, children: [
                 for (final t in _tags) InputChip(
                   label: Text(_isSearch ? '#$t' : t, style: const TextStyle(fontSize: 11)),
@@ -375,13 +382,13 @@ class TagCombinatorState extends State<TagCombinator> {
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   visualDensity: VisualDensity.compact,
                   selected: true,
-                  selectedColor: cs.primaryContainer.withAlpha(120),
+                  selectedColor: cs.primaryContainer.withAlpha(100),
                   side: BorderSide.none,
                 ),
                 for (final t in _tagsOr) InputChip(
                   label: Text('#$t', style: const TextStyle(fontSize: 11)),
                   onDeleted: () => setState(() { _tagsOr.remove(t); _emit(); }),
-                  backgroundColor: cs.tertiaryContainer.withAlpha(80),
+                  backgroundColor: cs.tertiaryContainer.withAlpha(60),
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   visualDensity: VisualDensity.compact,
                   selected: true,

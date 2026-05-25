@@ -32,8 +32,8 @@ class _ListScreenState extends State<ListScreen> {
 
   Future<void> _loadDefaultFilter() async {
     if (widget.tagFilter != null && mounted) {
-      _filterKey.currentState?.applyTokens(['#${widget.tagFilter}']);
       WidgetsBinding.instance.addPostFrameCallback((_) {
+        _filterKey.currentState?.applyTokens(['#${widget.tagFilter}']);
         widget.onFilterApplied?.call();
       });
       return;
@@ -61,6 +61,32 @@ class _ListScreenState extends State<ListScreen> {
         setState(() { _entries = []; _loading = false; });
       }
     }
+  }
+
+  Widget _buildFilterActions() {
+    final cs = Theme.of(context).colorScheme;
+    final hasFilter = (_filterKey.currentState?.queryString ?? '').isNotEmpty;
+    final isWide = MediaQuery.of(context).size.width > 400;
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      IconButton(
+        icon: Icon(_filterPinned ? Icons.push_pin : Icons.push_pin_outlined, size: 18,
+            color: _filterPinned ? cs.primary : cs.outline),
+        onPressed: _pinCurrentFilter,
+        visualDensity: VisualDensity.compact,
+        tooltip: _filterPinned ? 'Unpin' : 'Pin filter',
+        padding: const EdgeInsets.all(6),
+        constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+      ),
+      if (hasFilter)
+        IconButton(
+          icon: const Icon(Icons.bookmark_add_outlined, size: 18),
+          onPressed: _saveAsView,
+          visualDensity: VisualDensity.compact,
+          tooltip: 'Save as view',
+          padding: const EdgeInsets.all(6),
+          constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+        ),
+    ]);
   }
 
   Widget _buildPinChip() {
@@ -95,6 +121,34 @@ class _ListScreenState extends State<ListScreen> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(tokens.isEmpty ? 'Default filter cleared' : 'Default filter saved'),
         duration: const Duration(seconds: 1)));
+    }
+  }
+
+  Future<void> _saveAsView() async {
+    final q = _filterKey.currentState?.queryString ?? '';
+    if (q.isEmpty) return;
+    final ctrl = TextEditingController();
+    final name = await showDialog<String>(context: context, builder: (ctx) => AlertDialog(
+      title: const Text('Save Filter as View'),
+      content: Column(mainAxisSize: MainAxisSize.min, children: [
+        Text('Expression: $q', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.outline)),
+        const SizedBox(height: 12),
+        TextField(controller: ctrl, autofocus: true, decoration: const InputDecoration(labelText: 'View name', border: OutlineInputBorder())),
+      ]),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child: const Text('Save')),
+      ],
+    ));
+    if (name == null || name.isEmpty) return;
+    try {
+      await siftService.saveView(name, q);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('View "$name" saved'), duration: const Duration(seconds: 1)));
+        widget.onFilterApplied?.call();
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
     }
   }
 
@@ -177,7 +231,9 @@ class _ListScreenState extends State<ListScreen> {
   Widget build(BuildContext context) {
     return Column(children: [
       FilterBar(key: _filterKey, onChanged: () => _load(),
-        trailing: _selectionMode ? null : _buildPinChip()),
+        trailing: _selectionMode ? null : Row(mainAxisSize: MainAxisSize.min, children: [
+          _buildFilterActions(),
+        ])),
       Expanded(child: _buildList()),
       if (_selectionMode) _buildActionBar(),
     ]);
