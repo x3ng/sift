@@ -143,17 +143,65 @@ impl FilterOptions {
 }
 
 fn resolve_tag_pattern(pattern: &str, index: &Index) -> Vec<String> {
-    if pattern.ends_with('*') {
-        let prefix = pattern.trim_end_matches('*');
-        index
-            .tag_counts
-            .keys()
-            .filter(|t| t.starts_with(prefix))
-            .cloned()
-            .collect()
-    } else {
-        vec![pattern.to_string()]
+    if !pattern.contains('*') && !pattern.contains('?') {
+        // Exact match, no glob
+        return vec![pattern.to_string()];
     }
+    index
+        .tag_counts
+        .keys()
+        .filter(|t| glob_match(pattern, t))
+        .cloned()
+        .collect()
+}
+
+/// Glob matching: `*` = any chars except `/`, `**` = any chars including `/`, `?` = one char.
+fn glob_match(pattern: &str, text: &str) -> bool {
+    let p = pattern.as_bytes();
+    let t = text.as_bytes();
+    glob_rec(p, t)
+}
+
+fn glob_rec(p: &[u8], t: &[u8]) -> bool {
+    if p.is_empty() {
+        return t.is_empty();
+    }
+    // Check for ** first
+    if p.len() >= 2 && p[0] == b'*' && p[1] == b'*' {
+        let rest = &p[2..];
+        // ** can match zero or more chars (including /)
+        for i in 0..=t.len() {
+            if glob_rec(rest, &t[i..]) {
+                return true;
+            }
+        }
+        return false;
+    }
+    if p[0] == b'*' {
+        let rest = &p[1..];
+        // * matches zero or more chars except /
+        for i in 0..=t.len() {
+            if i > 0 && t[i - 1] == b'/' {
+                break; // * cannot cross /
+            }
+            if glob_rec(rest, &t[i..]) {
+                return true;
+            }
+        }
+        return false;
+    }
+    if p[0] == b'?' {
+        // ? matches one char (not /)
+        if t.is_empty() || t[0] == b'/' {
+            return false;
+        }
+        return glob_rec(&p[1..], &t[1..]);
+    }
+    // Literal match
+    if t.is_empty() || p[0] != t[0] {
+        return false;
+    }
+    glob_rec(&p[1..], &t[1..])
 }
 
 /// Sort entry IDs according to sort mode and priority config
@@ -265,5 +313,28 @@ mod tests {
         };
         let ids = opts.apply(&idx);
         assert_eq!(ids.len(), 2);
+    }
+
+    #[test]
+    fn test_glob_match() {
+        assert!(glob_match("work/*", "work/urgent"));
+        assert!(glob_match("work/*", "work/design"));
+        assert!(!glob_match("work/*", "life/urgent"));
+        assert!(!glob_match("work/*", "work/a/b")); // * doesn't cross /
+
+        assert!(glob_match("*/urgent", "work/urgent"));
+        assert!(glob_match("*/urgent", "design/urgent"));
+
+        assert!(!glob_match("*due*", "due/2026")); // * doesn't cross /
+        assert!(glob_match("*due*", "my-due-date"));
+        assert!(!glob_match("*due*", "work"));
+        assert!(glob_match("**due**", "due/2026")); // ** crosses /
+
+        assert!(glob_match("work/**", "work/a/b/c")); // ** crosses /
+        assert!(glob_match("work/**/urgent", "work/design/urgent"));
+        assert!(glob_match("work/**/urgent", "work/a/b/urgent"));
+
+        assert!(glob_match("work/?-fix", "work/a-fix"));
+        assert!(!glob_match("work/?-fix", "work/ab-fix"));
     }
 }

@@ -53,10 +53,10 @@ fn normalize_tags(tags: Vec<String>) -> Vec<String> {
 
 /// Validate that a tag name does not start with reserved characters.
 pub fn validate_tag(tag: &str) -> Result<(), String> {
-    if let Some(first) = tag.chars().next() {
-        if RESERVED.contains(&first) {
-            return Err(format!("tag '{}' cannot start with '{}'", tag, first));
-        }
+    if let Some(first) = tag.chars().next()
+        && RESERVED.contains(&first)
+    {
+        return Err(format!("tag '{}' cannot start with '{}'", tag, first));
     }
     Ok(())
 }

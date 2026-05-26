@@ -25,6 +25,9 @@ pub struct TagsConfig {
 
     #[serde(default = "default_date_prefixes")]
     pub date_prefixes: HashMap<String, String>,
+
+    #[serde(default)]
+    pub derived_tags: HashMap<String, String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

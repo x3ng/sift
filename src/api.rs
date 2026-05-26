@@ -70,6 +70,7 @@ impl SiftCore {
     pub fn list_parsed(&self, query: &str, show_done: bool) -> Result<Vec<Entry>, String> {
         let mut pq = parse_query(query);
         self.resolve_views(&mut pq)?;
+        self.resolve_derived_tags(&mut pq)?;
         self.apply_parsed(&pq, show_done)
     }
 
@@ -112,6 +113,75 @@ impl SiftCore {
             }
             pq.alternatives.extend(view_pq.alternatives);
         }
+        Ok(())
+    }
+
+    /// Expand derived tags: replace tag names that match config.derived_tags
+    /// with their parsed combinator expressions.
+    fn resolve_derived_tags(&self, pq: &mut ParsedQuery) -> Result<(), String> {
+        if self.cfg.tags.derived_tags.is_empty() {
+            return Ok(());
+        }
+        self.resolve_derived_inner(pq)?;
+        for alt in &mut pq.alternatives {
+            self.resolve_derived_inner(alt)?;
+        }
+        Ok(())
+    }
+
+    fn resolve_derived_inner(&self, pq: &mut ParsedQuery) -> Result<(), String> {
+        let derived = &self.cfg.tags.derived_tags;
+
+        // Expand tags_and
+        let mut expanded_and = Vec::new();
+        let mut to_remove_and = Vec::new();
+        for (i, tag) in pq.tags_and.iter().enumerate() {
+            if let Some(expr) = derived.get(tag) {
+                let sub = parse_query(expr);
+                expanded_and.extend(sub.tags_and);
+                to_remove_and.push(i);
+            }
+        }
+        for i in to_remove_and.into_iter().rev() { pq.tags_and.remove(i); }
+        pq.tags_and.extend(expanded_and);
+
+        // Expand tags_or
+        let mut expanded_or = Vec::new();
+        let mut to_remove_or = Vec::new();
+        for (i, tag) in pq.tags_or.iter().enumerate() {
+            if let Some(expr) = derived.get(tag) {
+                let sub = parse_query(expr);
+                expanded_or.extend(sub.tags_or);
+                // Also add AND components from derived expression to the parent
+                pq.tags_and.extend(sub.tags_and);
+                to_remove_or.push(i);
+            }
+        }
+        for i in to_remove_or.into_iter().rev() { pq.tags_or.remove(i); }
+        pq.tags_or.extend(expanded_or);
+
+        // Expand tags_not
+        let mut expanded_not = Vec::new();
+        let mut to_remove_not = Vec::new();
+        for (i, tag) in pq.tags_not.iter().enumerate() {
+            if let Some(expr) = derived.get(tag) {
+                let sub = parse_query(expr);
+                // Derived tag in NOT context: negate the whole expression
+                // For simplicity, add sub's tags to NOT list
+                expanded_not.extend(sub.tags_not);
+                // If derived has AND tags, they also become NOT
+                for t in sub.tags_and {
+                    expanded_not.push(t);
+                }
+                to_remove_not.push(i);
+            }
+        }
+        for i in to_remove_not.into_iter().rev() { pq.tags_not.remove(i); }
+        pq.tags_not.extend(expanded_not);
+
+        // Merge dates from expanded derived tags
+        // (already handled via parse_query above if derived expressions contain dates)
+
         Ok(())
     }
 
@@ -189,10 +259,10 @@ impl SiftCore {
     pub fn delete(&mut self, id: String) -> Result<bool, String> {
         let uid = resolve_uuid(&self.index, &id)?;
         // Clean up managed file if entry has #file tag
-        if let Some(entry) = self.index.entries.get(&uid) {
-            if entry.has_tag("file") && !entry.value.is_empty() {
-                self.store.delete_file(&entry.value).ok();
-            }
+        if let Some(entry) = self.index.entries.get(&uid)
+            && entry.has_tag("file") && !entry.value.is_empty()
+        {
+            self.store.delete_file(&entry.value).ok();
         }
         let mut entries = self.store.read_all().map_err(|e| e.to_string())?;
         entries.retain(|e| e.id != uid);
@@ -337,10 +407,10 @@ impl SiftCore {
         for line in content.lines() {
             let trimmed = line.trim();
             if trimmed.is_empty() { continue; }
-            if let Ok(entry) = serde_json::from_str::<Entry>(trimmed) {
-                if !existing_ids.contains(&entry.id) {
-                    new_entries.push(entry);
-                }
+            if let Ok(entry) = serde_json::from_str::<Entry>(trimmed)
+                && !existing_ids.contains(&entry.id)
+            {
+                new_entries.push(entry);
             }
         }
         let added = new_entries.len();

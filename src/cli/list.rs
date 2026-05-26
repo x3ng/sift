@@ -1,6 +1,7 @@
 use crate::api::SiftCore;
 use comfy_table::Table;
 
+#[allow(clippy::too_many_arguments)]
 pub fn run(
     core: &SiftCore,
     tags_and: Vec<String>,

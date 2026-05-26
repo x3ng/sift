@@ -1,5 +1,6 @@
 use crate::api::SiftCore;
 
+#[allow(clippy::too_many_arguments)]
 pub fn run(
     core: &mut SiftCore,
     tags_and: Vec<String>,
