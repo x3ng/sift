@@ -3,7 +3,7 @@ use crate::engine::combinator::{self, parse_query, ParsedQuery};
 use crate::engine::filter::{DateFilter, FilterOptions, SortMode};
 use crate::engine::index::Index;
 use crate::engine::types::DateOp;
-use crate::entry::{Body, Entry};
+use crate::entry::Entry;
 use crate::io::store::Store;
 use std::path::PathBuf;
 
@@ -33,8 +33,8 @@ impl SiftCore {
         Ok(())
     }
 
-    pub fn add(&mut self, name: String, body: Body, tags: Vec<String>) -> Result<Entry, String> {
-        let entry = Entry::new(name, body, tags);
+    pub fn add(&mut self, name: String, value: String, tags: Vec<String>) -> Result<Entry, String> {
+        let entry = Entry::new(name, value, tags);
         self.store.append(&entry).map_err(|e| e.to_string())?;
         self.index.add_entry(entry.clone(), &self.cfg.tags.date_prefixes);
         Ok(entry)
@@ -92,7 +92,7 @@ impl SiftCore {
             let Some(view) = view_entry else {
                 return Err(format!("view not found: @{view_name}"));
             };
-            let expr = view.body.text().unwrap_or("").to_string();
+            let expr = view.value.clone();
             if expr.is_empty() {
                 return Err(format!("view @{view_name} has no body expression"));
             }
@@ -169,18 +169,18 @@ impl SiftCore {
             let q = ft.to_lowercase();
             entries.retain(|e| {
                 e.name.to_lowercase().contains(&q)
-                    || e.body.searchable_text().to_lowercase().contains(&q)
+                    || e.value.to_lowercase().contains(&q)
                     || e.tags.iter().any(|t| t.to_lowercase().contains(&q))
             });
         }
         Ok(entries)
     }
 
-    pub fn edit(&mut self, id: String, name: Option<String>, body: Option<Body>) -> Result<bool, String> {
+    pub fn edit(&mut self, id: String, name: Option<String>, value: Option<String>) -> Result<bool, String> {
         let uid = resolve_uuid(&self.index, &id)?;
         self.store.update(&uid, |entry| {
             if let Some(n) = name { entry.name = n; }
-            if let Some(b) = body { entry.body = b; }
+            if let Some(v) = value { entry.value = v; }
         }).map_err(|e| e.to_string())?;
         self.reload()?;
         Ok(true)
@@ -188,10 +188,10 @@ impl SiftCore {
 
     pub fn delete(&mut self, id: String) -> Result<bool, String> {
         let uid = resolve_uuid(&self.index, &id)?;
-        // Clean up managed file if body is a file reference
+        // Clean up managed file if entry has #file tag
         if let Some(entry) = self.index.entries.get(&uid) {
-            if let Some(path) = entry.body.file_path() {
-                self.store.delete_file(path).ok();
+            if entry.has_tag("file") && !entry.value.is_empty() {
+                self.store.delete_file(&entry.value).ok();
             }
         }
         let mut entries = self.store.read_all().map_err(|e| e.to_string())?;
@@ -359,7 +359,7 @@ impl SiftCore {
         let q = query.to_lowercase();
         self.index.entries.values()
             .filter(|e| e.name.to_lowercase().contains(&q)
-                     || e.body.searchable_text().to_lowercase().contains(&q)
+                     || e.value.to_lowercase().contains(&q)
                      || e.tags.iter().any(|t| t.to_lowercase().contains(&q)))
             .cloned()
             .collect()

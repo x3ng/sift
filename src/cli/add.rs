@@ -1,5 +1,4 @@
 use crate::api::SiftCore;
-use crate::entry::Body;
 use chrono::Local;
 
 pub fn run(
@@ -23,8 +22,7 @@ pub fn run(
         }
     }
 
-    let b = body.map(|c| Body::Text { content: c }).unwrap_or(Body::Empty);
-    let entry = core.add(name, b, tags)?;
+    let entry = core.add(name, body.unwrap_or_default(), tags)?;
     println!("{}", entry.id_prefix());
     Ok(())
 }

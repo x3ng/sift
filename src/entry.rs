@@ -2,54 +2,19 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(tag = "type")]
-pub enum Body {
-    #[serde(rename = "text")]
-    Text { content: String },
-    #[serde(rename = "file")]
-    File { path: String },
-    #[serde(rename = "empty")]
-    Empty,
-}
-
-impl Body {
-    pub fn text(&self) -> Option<&str> {
-        match self {
-            Body::Text { content } => Some(content),
-            _ => None,
-        }
-    }
-
-    pub fn searchable_text(&self) -> String {
-        match self {
-            Body::Text { content } => content.clone(),
-            Body::File { path } => path.clone(),
-            Body::Empty => String::new(),
-        }
-    }
-
-    pub fn file_path(&self) -> Option<&str> {
-        match self {
-            Body::File { path } => Some(path),
-            _ => None,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Entry {
     pub id: Uuid,
     pub name: String,
-    pub body: Body,
+    pub value: String,
     pub tags: Vec<String>,
 }
 
 impl Entry {
-    pub fn new(name: String, body: Body, tags: Vec<String>) -> Self {
+    pub fn new(name: String, value: String, tags: Vec<String>) -> Self {
         Self {
             id: Uuid::new_v4(),
             name,
-            body,
+            value,
             tags: normalize_tags(tags),
         }
     }
@@ -72,6 +37,9 @@ impl Entry {
     }
 }
 
+/// Reserved characters that cannot start a tag name.
+const RESERVED: &[char] = &['#', '-', '&', '$'];
+
 fn normalize_tags(tags: Vec<String>) -> Vec<String> {
     let mut result: Vec<String> = tags
         .into_iter()
@@ -83,6 +51,16 @@ fn normalize_tags(tags: Vec<String>) -> Vec<String> {
     result
 }
 
+/// Validate that a tag name does not start with reserved characters.
+pub fn validate_tag(tag: &str) -> Result<(), String> {
+    if let Some(first) = tag.chars().next() {
+        if RESERVED.contains(&first) {
+            return Err(format!("tag '{}' cannot start with '{}'", tag, first));
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -91,7 +69,7 @@ mod tests {
     fn test_new_entry_strips_hash_and_dedup() {
         let e = Entry::new(
             "test".into(),
-            Body::Empty,
+            String::new(),
             vec!["#urgent".into(), "urgent".into(), "life".into()],
         );
         assert_eq!(e.name, "test");
@@ -102,7 +80,7 @@ mod tests {
     fn test_is_done() {
         let e = Entry::new(
             "x".into(),
-            Body::Empty,
+            String::new(),
             vec!["done/2026-01-01T00:00".into()],
         );
         assert!(e.is_done());
@@ -112,7 +90,7 @@ mod tests {
     fn test_has_tag_wildcard() {
         let e = Entry::new(
             "x".into(),
-            Body::Empty,
+            String::new(),
             vec!["work/rtd".into(), "urgent".into()],
         );
         assert!(e.has_tag("work/*"));
@@ -120,21 +98,18 @@ mod tests {
     }
 
     #[test]
-    fn test_body_text() {
-        let t = Body::Text { content: "hello".into() };
-        assert_eq!(t.text(), Some("hello"));
-        let f = Body::File { path: "files/x.png".into() };
-        assert_eq!(f.file_path(), Some("files/x.png"));
-        assert_eq!(f.text(), None);
-        assert_eq!(Body::Empty.text(), None);
+    fn test_value_is_string() {
+        let e = Entry::new("test".into(), "hello world".into(), vec![]);
+        assert_eq!(e.value, "hello world");
     }
 
     #[test]
-    fn test_body_serde() {
-        let t = Body::Text { content: "hello".into() };
-        let json = serde_json::to_string(&t).unwrap();
-        assert!(json.contains(r#""type":"text""#));
-        let back: Body = serde_json::from_str(&json).unwrap();
-        assert_eq!(t, back);
+    fn test_validate_tag() {
+        assert!(validate_tag("work").is_ok());
+        assert!(validate_tag("work/urgent").is_ok());
+        assert!(validate_tag("#tag").is_err());
+        assert!(validate_tag("-tag").is_err());
+        assert!(validate_tag("&tag").is_err());
+        assert!(validate_tag("$tag").is_err());
     }
 }

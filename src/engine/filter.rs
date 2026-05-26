@@ -199,14 +199,14 @@ fn priority_score(id: &Uuid, index: &Index, priority_order: &[String]) -> i32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::entry::{Body, Entry};
+    use crate::entry::Entry;
     use std::collections::HashMap;
 
     fn test_index() -> Index {
         let entries = vec![
             Entry::new(
                 "urgent task".into(),
-                Body::Empty,
+                String::new(),
                 vec![
                     "urgent".into(),
                     "work".into(),
@@ -216,12 +216,12 @@ mod tests {
             ),
             Entry::new(
                 "normal task".into(),
-                Body::Empty,
+                String::new(),
                 vec!["life".into(), "created/2026-05-22T10:00".into()],
             ),
             Entry::new(
                 "done task".into(),
-                Body::Empty,
+                String::new(),
                 vec![
                     "work".into(),
                     "created/2026-05-19T10:00".into(),

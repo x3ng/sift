@@ -8,9 +8,8 @@ pub fn run(core: &SiftCore, query: String) -> Result<(), Box<dyn std::error::Err
     }
     for entry in &entries {
         println!("{}  {}", entry.id_prefix(), entry.name);
-        let body_text = entry.body.searchable_text();
-        if body_text.to_lowercase().contains(&query.to_lowercase()) {
-            let preview: String = body_text.chars().take(80).collect();
+        if entry.value.to_lowercase().contains(&query.to_lowercase()) {
+            let preview: String = entry.value.chars().take(80).collect();
             println!("         body: {preview}");
         }
     }

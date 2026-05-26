@@ -1,5 +1,5 @@
 use crate::api::SiftCore;
-use crate::entry::{Body, Entry};
+use crate::entry::Entry;
 use std::fs;
 use std::io::BufRead;
 
@@ -60,5 +60,5 @@ fn parse_md_line(line: &str) -> Option<Entry> {
         let now = chrono::Local::now().format("%Y-%m-%dT%H:%M").to_string();
         tags.push(format!("done/{now}"));
     }
-    Some(Entry::new(parts.join(" "), Body::Empty, tags))
+    Some(Entry::new(parts.join(" "), String::new(), tags))
 }

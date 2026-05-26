@@ -1,6 +1,4 @@
 use crate::entry::Entry;
-#[cfg(test)]
-use crate::entry::Body;
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
@@ -16,13 +14,13 @@ impl Store {
         Self { path, backup_dir }
     }
 
-    /// Directory for managed files (relative paths in Body::File point here).
+    /// Directory for managed files (entries with #file tag).
     pub fn files_dir(&self) -> PathBuf {
         self.path.parent().unwrap_or(Path::new(".")).join("files")
     }
 
     /// Copy an external file into sift's managed files directory.
-    /// Returns the relative path to store in Body::File.
+    /// Returns the relative path to store as entry value (with #file tag).
     pub fn import_file(&self, source: &Path) -> Result<String, Box<dyn std::error::Error>> {
         let ext = source.extension().and_then(|e| e.to_str()).unwrap_or("");
         let dest_name = if ext.is_empty() {
@@ -36,7 +34,7 @@ impl Store {
         Ok(format!("files/{}", dest_name))
     }
 
-    /// Delete a managed file (given the relative path stored in Body::File).
+    /// Delete a managed file (given the relative path stored in entry value with #file tag).
     pub fn delete_file(&self, relative_path: &str) -> Result<(), Box<dyn std::error::Error>> {
         let abs = self.path.parent().unwrap_or(Path::new(".")).join(relative_path);
         if abs.exists() {
@@ -150,8 +148,8 @@ mod tests {
     #[test]
     fn test_append_and_read() {
         let (store, _dir) = test_store();
-        let e1 = Entry::new("one".into(), Body::Empty, vec!["test".into()]);
-        let e2 = Entry::new("two".into(), Body::Empty, vec!["test".into()]);
+        let e1 = Entry::new("one".into(), String::new(), vec!["test".into()]);
+        let e2 = Entry::new("two".into(), String::new(), vec!["test".into()]);
 
         store.append(&e1).unwrap();
         store.append(&e2).unwrap();
@@ -164,7 +162,7 @@ mod tests {
     #[test]
     fn test_update_entry() {
         let (store, _dir) = test_store();
-        let e = Entry::new("old".into(), Body::Empty, vec![]);
+        let e = Entry::new("old".into(), String::new(), vec![]);
         let id = e.id;
         store.append(&e).unwrap();
 

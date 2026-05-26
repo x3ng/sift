@@ -101,7 +101,7 @@ fn parse_tag_timestamp(tag: &str, prefix: &str) -> Option<NaiveDateTime> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::entry::{Body, Entry};
+    use crate::entry::Entry;
     use std::collections::HashMap;
 
     fn test_prefixes() -> HashMap<String, String> {
@@ -115,8 +115,8 @@ mod tests {
     #[test]
     fn test_index_rebuild() {
         let entries = vec![
-            Entry::new("one".into(), Body::Empty, vec!["work".into(), "created/2026-05-20T10:00".into()]),
-            Entry::new("two".into(), Body::Empty, vec!["life".into(), "created/2026-05-21T10:00".into()]),
+            Entry::new("one".into(), String::new(), vec!["work".into(), "created/2026-05-20T10:00".into()]),
+            Entry::new("two".into(), String::new(), vec!["life".into(), "created/2026-05-21T10:00".into()]),
         ];
         let mut idx = Index::new();
         idx.rebuild_from(&entries, &test_prefixes());
@@ -128,9 +128,9 @@ mod tests {
     #[test]
     fn test_tag_counts_sorted() {
         let entries = vec![
-            Entry::new("a".into(), Body::Empty, vec!["common".into(), "rare".into()]),
-            Entry::new("b".into(), Body::Empty, vec!["common".into()]),
-            Entry::new("c".into(), Body::Empty, vec!["common".into()]),
+            Entry::new("a".into(), String::new(), vec!["common".into(), "rare".into()]),
+            Entry::new("b".into(), String::new(), vec!["common".into()]),
+            Entry::new("c".into(), String::new(), vec!["common".into()]),
         ];
         let mut idx = Index::new();
         idx.rebuild_from(&entries, &test_prefixes());
@@ -142,7 +142,7 @@ mod tests {
     #[test]
     fn test_index_uses_config_prefixes() {
         let entries = vec![
-            Entry::new("x".into(), Body::Empty, vec!["meeting/2026-06-01T09:00".into()]),
+            Entry::new("x".into(), String::new(), vec!["meeting/2026-06-01T09:00".into()]),
         ];
         let mut prefixes = test_prefixes();
         prefixes.insert("meeting/".into(), "%Y-%m-%dT%H:%M".into());

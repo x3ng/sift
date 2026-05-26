@@ -20,8 +20,8 @@ pub fn run(core: &SiftCore, path: &str, format: &str) -> Result<(), Box<dyn std:
                 let status = if e.is_done() { "x" } else { " " };
                 let tags = e.tags.iter().map(|t| format!("#{t}")).collect::<Vec<_>>().join(" ");
                 writeln!(f, "- [{status}] {}  {tags}", e.name)?;
-                if let Some(text) = e.body.text() {
-                    writeln!(f, "  {text}")?;
+                if !e.value.is_empty() {
+                    writeln!(f, "  {}", e.value)?;
                 }
             }
         }
